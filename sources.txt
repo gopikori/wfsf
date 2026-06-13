@@ -1,0 +1,6 @@
+  https://www.ai.engineer/worldsfair/2026/sessions.json
+  https://www.ai.engineer/worldsfair/2026/speakers.json
+  https://www.ai.engineer/worldsfair/2026/llms.md
+  https://www.ai.engineer/worldsfair/speakers-embeddings.json
+  
+mcp deatails: https://www.ai.engineer/worldsfair/2026/mcp
