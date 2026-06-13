@@ -1,0 +1,16 @@
+.agent
+.env
+.venv
+.DS_Store
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.egg-info/
+escalations_ts/node_modules/
+runtime/
+logs/
+documents/
+test_output/
+screenshots
+.playwright-cli/
