@@ -1,6 +1,14 @@
 /* ─── Browse: day → time-strip → slot bands → compact cards ─── */
 
-.session-list.slotted { padding: 0; }
+.session-list.slotted {
+  padding: 0;
+  /* Make room for the fixed .day-chrome at the bottom so the last cards
+     in any day-block aren't hidden behind it. */
+  padding-bottom: calc(var(--chrome-clear, 220px) + env(safe-area-inset-bottom, 0px));
+}
+/* Tell the scroll engine to treat the fixed chrome area as unscrollable.
+   scrollIntoView() and anchor jumps will land above the chrome, not behind it. */
+html { scroll-padding-bottom: calc(var(--chrome-clear, 220px) + var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px)); }
 
 .day-block {
   position: relative;
@@ -332,14 +340,17 @@
   .shape-lens .ls-time { font-size: 1.04rem; }
 }
 
-/* Day chrome: sticks just above the global bottom-nav while the day-block is in view.
-   Houses day-band, time-strip, shape-bar — all thumb-reachable. */
+/* Day chrome: PINNED to viewport bottom (above bottom-nav) regardless of scroll.
+   Each day-block renders its own chrome; JS toggles `is-active` so only the
+   chrome for the day-block currently in view is visible. Fixed (not sticky)
+   so it never detaches at the end of the page. */
 .day-chrome {
-  position: sticky;
+  position: fixed;
   bottom: calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
   z-index: 25;
-  margin: 0.6rem calc(-1 * var(--pad, 20px)) 0;
-  display: flex;
+  display: none;
   flex-direction: column;
   background:
     radial-gradient(120% 80% at 50% 0%, rgba(255,93,41,0.06), transparent 60%),
@@ -348,6 +359,7 @@
   border-top: 1px solid rgba(255,255,255,0.08);
   box-shadow: 0 -8px 24px rgba(0,0,0,0.45);
 }
+.day-chrome.is-active { display: flex; }
 .day-chrome > .day-tiles,
 .day-chrome > .time-strip,
 .day-chrome > .shape-bar {

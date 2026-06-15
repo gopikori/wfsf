@@ -2,6 +2,7 @@
   function bindClock() {
     const el = document.getElementById('liveclock');
     if (!el) return;
+    if (el.dataset.frozen === '1') return;
     const fmt = () => {
       const d = new Date();
       const date = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
@@ -15,6 +16,7 @@
   function bindCountdowns() {
     const tick = () => {
       document.querySelectorAll('.countdown[data-start]').forEach(el => {
+        if (el.dataset.frozen === '1') return;
         const start = new Date(el.dataset.start);
         if (Number.isNaN(start.getTime())) return;
         const diff = start - new Date();
@@ -128,10 +130,27 @@
     });
   }
 
+  let observerSuppressedUntil = 0;
+  function suppressObserverFor(ms) {
+    observerSuppressedUntil = Date.now() + ms;
+  }
+  function isObserverSuppressed() {
+    return Date.now() < observerSuppressedUntil;
+  }
+
   function scrollToSlot(anchorId, smooth) {
     const el = document.getElementById(anchorId);
     if (!el) return;
-    el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    // If this slot is the LAST one inside its day-block (next sibling is the
+    // fixed .day-chrome), aligning its top to viewport-top leaves a huge dead
+    // area between its cards and the chrome. Align its bottom instead so it
+    // lands just above the chrome with prior slots' cards above for context.
+    const next = el.nextElementSibling;
+    const isLastInBlock = next && next.classList && next.classList.contains('day-chrome');
+    el.scrollIntoView({
+      behavior: smooth ? 'smooth' : 'auto',
+      block: isLastInBlock ? 'end' : 'start',
+    });
   }
   function markCurrentPill(anchorId) {
     document.querySelectorAll('.time-pill.is-current').forEach(p => p.classList.remove('is-current'));
@@ -148,6 +167,7 @@
       if (!link) return;
       e.preventDefault();
       const id = link.dataset.slotAnchor;
+      suppressObserverFor(1400);
       scrollToSlot(id, true);
       markCurrentPill(id);
       if (history.replaceState) history.replaceState(null, '', '#' + id);
@@ -276,6 +296,7 @@
 
       bar.addEventListener('pointerdown', (e) => {
         scrubbing = true;
+        suppressObserverFor(60000);
         try { bar.setPointerCapture(e.pointerId); } catch (_) {}
         bar.classList.add('is-scrubbing');
         preview(segAt(e.clientX, e.clientY));
@@ -283,6 +304,7 @@
       });
       bar.addEventListener('pointermove', (e) => {
         if (!scrubbing) return;
+        suppressObserverFor(2000);
         preview(segAt(e.clientX, e.clientY));
       });
       function end(e) {
@@ -292,7 +314,10 @@
         try { if (e && e.pointerId != null) bar.releasePointerCapture(e.pointerId); } catch (_) {}
         hideShapeLens();
         bar.querySelectorAll('.shape-seg.is-active').forEach(s => s.classList.remove('is-active'));
-        if (lastAnchor) scrollToSlot(lastAnchor, true);
+        if (lastAnchor) {
+          suppressObserverFor(1500);
+          scrollToSlot(lastAnchor, true);
+        }
       }
       bar.addEventListener('pointerup', end);
       bar.addEventListener('pointercancel', end);
@@ -303,10 +328,30 @@
     const slots = Array.from(document.querySelectorAll('.slot-block[id]'));
     if (!slots.length || !('IntersectionObserver' in window)) return;
     const obs = new IntersectionObserver((entries) => {
+      if (isObserverSuppressed()) return;
       const visible = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
       if (visible.length) markCurrentPill(visible[0].target.id);
     }, { rootMargin: '-70px 0px -60% 0px', threshold: 0 });
     slots.forEach(s => obs.observe(s));
+  }
+
+  function bindDayChromeSwitch() {
+    const blocks = Array.from(document.querySelectorAll('.day-block'));
+    if (!blocks.length) return;
+    const activate = (block) => {
+      document.querySelectorAll('.day-chrome.is-active').forEach(c => c.classList.remove('is-active'));
+      const chrome = block.querySelector('.day-chrome');
+      if (chrome) chrome.classList.add('is-active');
+    };
+    activate(blocks[0]);
+    if (!('IntersectionObserver' in window)) return;
+    const obs = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter(e => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible.length) activate(visible[0].target);
+    }, { rootMargin: '-25% 0px -55% 0px', threshold: 0 });
+    blocks.forEach(b => obs.observe(b));
   }
 
   function bindReminders() {
@@ -338,12 +383,14 @@
     autoAnchorNow();
     bindSlotObserver();
     bindShapeBarScrub();
+    bindDayChromeSwitch();
     document.body.addEventListener('htmx:afterSwap', (e) => {
       if (!e.detail || !e.detail.target) return;
       if (e.detail.target.id === 'results-region') {
         autoAnchorNow();
         bindSlotObserver();
         bindShapeBarScrub();
+        bindDayChromeSwitch();
       }
     });
   });

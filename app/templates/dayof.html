@@ -7,11 +7,18 @@
     <h1 class="display sm">{% if day_label %}{{ day_label }}{% else %}Day-Of Companion{% endif %}</h1>
   </div>
   <div class="ph-meta">
-    <span class="meta-pill" id="liveclock">{{ now.strftime('%a, %b %-d · %-I:%M %p') }}</span>
+    <span class="meta-pill" id="liveclock" {% if sim_label %}data-frozen="1"{% endif %}>{{ now.strftime('%a, %b %-d · %-I:%M %p') }}</span>
   </div>
 </section>
 
-{% if not in_event %}
+{% if sim_label %}
+<aside class="alert-band sim-band">
+  <h3>⏱ Simulated time: {{ sim_label }}</h3>
+  <p>This view is being rendered as if it were that moment. Drop the <code>?as_of=…</code> query param to return to real time.</p>
+</aside>
+{% endif %}
+
+{% if not in_event and not sim_label %}
 <aside class="alert-band">
   <h3>Event runs Jun 28 — Jul 2, 2026</h3>
   <p>On event days this view auto-focuses to <em>now</em> and <em>next</em>. Until then, plan in <a href="/browse">Browse</a> and review in <a href="/my-schedule">My Schedule</a>.</p>
@@ -78,7 +85,7 @@
           {% if s.track %}<span class="tag track"><span class="dot"></span>{{ s.track }}</span>{% endif %}
         </p>
         <p class="muted">{{ s.start_time|display_time }}{% if s.end_time %} – {{ s.end_time|display_time }}{% endif %}</p>
-        <p class="countdown" data-start="{{ s._start.isoformat() }}">Starts soon</p>
+        <p class="countdown" data-start="{{ s._start.isoformat() }}" {% if sim_label %}data-frozen="1"{% endif %}>{% if sim_label %}Starts at {{ s.start_time|display_time }}{% else %}Starts soon{% endif %}</p>
       </a>
     {% else %}
       <p class="muted">No more saved sessions for today.</p>

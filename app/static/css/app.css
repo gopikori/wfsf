@@ -423,6 +423,9 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .alert-band h3 { margin: 0 0 8px; font-size: 14px; color: var(--accent-2); letter-spacing: 0.02em; }
 .alert-band ul { margin: 0; padding-left: 18px; font-size: 14px; }
 .alert-band em { color: var(--danger); font-style: normal; }
+.alert-band.sim-band { border-color: rgba(255,184,0,0.55); background: rgba(255,184,0,0.10); }
+.alert-band.sim-band h3 { color: #ffb800; font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.06em; }
+.alert-band.sim-band code { background: rgba(0,0,0,0.35); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
 
 /* Empty */
 .empty {

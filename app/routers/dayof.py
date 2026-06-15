@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
 from app.auth import CurrentUser
+from app.config import settings
 from app.deps import current_user
 from app.queries import (
     annotate_with_conflicts,
@@ -90,9 +91,26 @@ def _interest_tracks(user_id: int) -> list[str]:
         return []
 
 
+def _resolve_now(request: Request) -> tuple[datetime, str | None]:
+    """Returns (effective now, simulation label if overridden).
+    The ?as_of=ISO override is honored ONLY when DEV_OTP_LOG=true so it can't
+    leak to production. Accepts both 'YYYY-MM-DDTHH:MM' and 'YYYY-MM-DD'.
+    """
+    if not settings.DEV_OTP_LOG:
+        return datetime.now(), None
+    raw = (request.query_params.get("as_of") or "").strip()
+    if not raw:
+        return datetime.now(), None
+    try:
+        simulated = datetime.fromisoformat(raw)
+    except ValueError:
+        return datetime.now(), None
+    return simulated, simulated.strftime("%a %b %-d %Y · %-I:%M %p")
+
+
 @router.get("/day-of", response_class=HTMLResponse)
 async def day_of(request: Request, user: CurrentUser = Depends(current_user)):
-    now = datetime.now()
+    now, sim_label = _resolve_now(request)
     day_idx = _today_day_index(now)
     items_all = annotate_with_conflicts(itinerary_sessions(user.id))
     today_items = [s for s in items_all if s["day_index"] == day_idx] if day_idx is not None else []
@@ -113,5 +131,6 @@ async def day_of(request: Request, user: CurrentUser = Depends(current_user)):
         "in_event": day_idx is not None and now.date().isoformat() == DAY_DATE.get(day_idx),
         "days_known": [{"index": i, "iso": DAY_DATE[i], "short": DAY_SHORT[i]} for i in sorted(DAY_INDEX.values())],
         "today_total": len(today_items),
+        "sim_label": sim_label,
     }
     return templates.TemplateResponse("dayof.html", ctx)
