@@ -292,6 +292,17 @@ def floor_label(room: str | None) -> str | None:
     return {"1": "Floor 1", "2": "Floor 2", "3": "Floor 3"}[f]
 
 
+def last_sessions_sync_at() -> str | None:
+    sql = (
+        "SELECT finished_at FROM sync_log "
+        "WHERE source='sessions' AND status='ok' AND finished_at IS NOT NULL "
+        "ORDER BY finished_at DESC LIMIT 1"
+    )
+    with db() as conn:
+        row = conn.execute(sql).fetchone()
+    return row["finished_at"] if row else None
+
+
 def session_changes_for_user(user_id: int, since_hours: int = 72) -> list[dict]:
     sql = (
         "SELECT sc.id, sc.session_id, sc.change_type, sc.field, sc.old_value, sc.new_value, sc.detected_at, "

@@ -30,6 +30,28 @@
       <form method="post" action="/logout" class="inline">
         <button class="chip ghost" type="submit" aria-label="Sign out">Sign out</button>
       </form>
+      <details class="about-info">
+        <summary class="about-trigger" aria-label="About this app" title="About">i</summary>
+        <div class="about-popover" role="dialog" aria-label="About WFSF">
+          <div class="about-head">
+            <span class="about-mark">WFSF</span>
+            <span class="about-tag">Jun 29 – Jul 2 · San Francisco</span>
+          </div>
+          <p class="about-blurb">Build your personal schedule for the <strong>AI Engineer World's Fair 2026</strong> — 554 sessions across 9+ parallel tracks.</p>
+          {% set _sync = last_sync_label() %}
+          {% if _sync %}
+          <div class="about-meta">
+            <span class="about-meta-dot" aria-hidden="true"></span>
+            <span>{{ _sync }}</span>
+          </div>
+          {% endif %}
+          <div class="about-divider"></div>
+          <div class="about-row">
+            <span class="about-label">Feedback</span>
+            <a class="about-email" href="mailto:gopi.kori@gmail.com?subject=WFSF%20feedback">gopi.kori@gmail.com</a>
+          </div>
+        </div>
+      </details>
     </nav>
   </header>
   {% endif %}

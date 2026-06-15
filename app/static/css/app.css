@@ -90,6 +90,82 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .top-nav .chip { max-width: 130px; font-size: 12px; padding: 6px 10px; }
 }
 
+/* About info popover */
+.about-info { position: relative; }
+.about-info > summary { list-style: none; }
+.about-info > summary::-webkit-details-marker { display: none; }
+.about-trigger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 1px solid var(--line); background: rgba(255,255,255,0.03);
+  color: var(--ink-mute); font-family: 'Instrument Serif', serif;
+  font-size: 14px; font-style: italic; line-height: 1; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.about-trigger:hover { color: var(--ink); border-color: var(--line-2); background: rgba(255,255,255,0.06); }
+.about-info[open] > .about-trigger { color: var(--accent); border-color: var(--accent); }
+.about-popover {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 40;
+  width: 300px; padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(20,20,28,0.98), rgba(12,12,18,0.98));
+  border: 1px solid var(--line-2); border-radius: 12px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,93,41,0.06) inset;
+  animation: about-pop-in 0.16s ease-out;
+}
+.about-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.about-mark {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 16px; letter-spacing: 0.04em;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.about-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.about-blurb {
+  margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink);
+  font-family: 'Instrument Serif', serif; font-style: italic;
+}
+.about-blurb strong { font-style: normal; color: var(--accent-3); font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; }
+.about-meta {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-top: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--ink-mute);
+}
+.about-meta-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #21c389;
+  box-shadow: 0 0 6px rgba(33,195,137,0.7);
+  animation: about-pulse 2.4s ease-in-out infinite;
+}
+@keyframes about-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.about-divider {
+  height: 1px; margin: 12px 0 10px;
+  background: linear-gradient(90deg, transparent, var(--line-2), transparent);
+}
+.about-row { display: flex; flex-direction: column; gap: 3px; }
+.about-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.about-email {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; color: var(--ink); word-break: break-all;
+}
+.about-email:hover { color: var(--accent); text-decoration: none; }
+@keyframes about-pop-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Bottom nav */
 .bottom-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;

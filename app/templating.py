@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Request
@@ -147,4 +148,32 @@ templates.env.filters["display_time"] = display_time
 templates.env.filters["status_class"] = status_class
 templates.env.filters["twitter_handle"] = twitter_handle
 
+def last_sync_label() -> str | None:
+    """Return a short label like 'Updated 12 min ago' for the last sessions sync, or None."""
+    from app.queries import last_sessions_sync_at
+
+    raw = last_sessions_sync_at()
+    if not raw:
+        return None
+    try:
+        ts = datetime.fromisoformat(raw.replace(" ", "T"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+    except (ValueError, AttributeError):
+        return None
+    delta = datetime.now(timezone.utc) - ts
+    secs = int(delta.total_seconds())
+    if secs < 60:
+        return "Updated just now"
+    mins = secs // 60
+    if mins < 60:
+        return f"Updated {mins} min ago"
+    hrs = mins // 60
+    if hrs < 24:
+        return f"Updated {hrs}h ago"
+    days = hrs // 24
+    return f"Updated {days}d ago"
+
+
 templates.env.globals["static_v"] = static_v
+templates.env.globals["last_sync_label"] = last_sync_label
