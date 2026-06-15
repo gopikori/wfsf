@@ -148,6 +148,13 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
   font-family: 'JetBrains Mono', monospace;
 }
 .meta-pill strong { color: var(--accent-3); font-weight: 600; }
+.meta-pill.link {
+  text-decoration: none; color: var(--fg);
+  border-color: rgba(255,93,41,0.45);
+  background: linear-gradient(135deg, rgba(255,93,41,0.18), rgba(255,93,41,0.04));
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+.meta-pill.link:hover { transform: translateY(-1px); background: linear-gradient(135deg, rgba(255,93,41,0.30), rgba(255,93,41,0.08)); }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 12px; border-radius: 100px;

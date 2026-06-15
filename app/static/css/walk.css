@@ -1,0 +1,204 @@
+/* Walk preview — animated route across Moscone West floor plans */
+
+.walk-head {
+  display: flex; flex-direction: column; gap: 0.6rem;
+  padding: 0.9rem 1.1rem 0.4rem;
+}
+.walk-head .wh-titles .eyebrow { color: var(--muted); }
+.walk-head h1 { margin: 0.1rem 0 0.3rem; }
+
+.walk-days {
+  display: flex; gap: 0.45rem; flex-wrap: wrap;
+}
+.walk-day-pill {
+  --pill-bg: rgba(255,255,255,0.06);
+  text-decoration: none; color: var(--fg);
+  background: var(--pill-bg);
+  padding: 0.45rem 0.7rem 0.5rem;
+  border-radius: 12px;
+  display: inline-flex; flex-direction: column; align-items: flex-start;
+  line-height: 1.05;
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.walk-day-pill .wdp-short { font-weight: 600; font-size: 0.92rem; }
+.walk-day-pill .wdp-count { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; }
+.walk-day-pill.is-current {
+  background: linear-gradient(135deg, rgba(255,93,41,0.22), rgba(255,93,41,0.06));
+  border-color: rgba(255,93,41,0.45);
+}
+.walk-day-pill.is-empty { opacity: 0.55; }
+.walk-day-pill:hover { transform: translateY(-1px); }
+
+.walk-stage {
+  margin: 0.8rem 0.7rem 0;
+  position: relative;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.walk-floors { position: relative; width: 100%; }
+
+/* All floor PNGs are stacked; only the active one is shown via opacity.
+   Keeping them mounted (instead of swapping src) means crossfades are zero-cost
+   and the next floor pre-paints invisibly while the marker is still moving. */
+.walk-floor {
+  display: block;
+  width: 100%;
+  height: auto;
+  position: absolute;
+  top: 0; left: 0;
+  opacity: 0;
+  transition: opacity 350ms ease;
+  pointer-events: none;
+  user-select: none;
+}
+.walk-floor:first-of-type { position: relative; } /* Reserves height in flow. */
+.walk-floor.is-current { opacity: 1; }
+
+.walk-overlay {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+/* Visible enough to read on a 414px-wide phone. Stroke widths are in viewBox
+   units (out of 100), so a 1.4 stroke ≈ 6px wide at typical viewport sizes. */
+.walk-trail {
+  fill: none;
+  stroke: rgba(255,93,41,0.78);
+  stroke-width: 1.4;
+  stroke-dasharray: 2.2 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 1.5px rgba(255,93,41,0.7));
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.walk-trail.is-visible { opacity: 1; }
+/* No CSS transform on .walk-marker — JS owns the transform via setAttribute,
+   and CSS transform on SVG elements overrides the SVG attribute (SVG2). */
+.walk-marker .wm-glow { opacity: 0.9; }
+.walk-marker .wm-dot {
+  fill: #ff5d29;
+  stroke: #fff;
+  stroke-width: 0.7;
+  filter: drop-shadow(0 0 1.2px rgba(0,0,0,0.5));
+}
+/* Visited-stop dots: small markers we drop on each stop the marker has
+   passed through, so the user can see the route already walked. */
+.walk-pin {
+  fill: rgba(255,184,0,0.95);
+  stroke: rgba(0,0,0,0.55);
+  stroke-width: 0.35;
+}
+.walk-pin.is-next { fill: rgba(255,255,255,0.92); }
+/* Room labels overlaid on the active floor. Foreign-object text so it
+   scales with viewBox but stays legible (CSS font-size). */
+.walk-label {
+  fill: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2.6px;
+  paint-order: stroke;
+  stroke: rgba(0,0,0,0.85);
+  stroke-width: 0.6;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+.walk-label.is-active { fill: #ffd166; }
+
+.walk-floor-label {
+  position: absolute; left: 0.7rem; top: 0.5rem;
+  margin: 0; padding: 0.2rem 0.6rem;
+  background: rgba(11,11,16,0.78);
+  color: #fff; font-size: 0.78rem; letter-spacing: 0.04em;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  pointer-events: none;
+}
+
+.walk-controls {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+  margin: 0.8rem 0.7rem 0;
+}
+.walk-controls .btn { white-space: nowrap; }
+.walk-controls .wp-icon { display: inline-block; transform: translateY(-1px); margin-right: 0.3rem; }
+.walk-controls .btn[aria-pressed="true"] .wp-icon::before { content: "❚❚"; font-size: 0.85em; }
+.walk-controls .btn[aria-pressed="true"] .wp-icon { display: none; }
+.walk-controls .btn[aria-pressed="true"] .wp-text::before { content: "❚❚ Pause"; }
+.walk-controls .btn[aria-pressed="true"] .wp-text { font-size: 0; }
+.walk-controls .btn[aria-pressed="true"] .wp-text::before { font-size: 1rem; }
+
+.walk-scrub-wrap { display: block; }
+.walk-scrub {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: linear-gradient(90deg,
+    rgba(255,93,41,0.7) calc(var(--progress,0%) + 0%),
+    rgba(255,255,255,0.10) calc(var(--progress,0%) + 0%));
+  border-radius: 999px;
+  outline: none;
+}
+.walk-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: #ff5d29; border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.walk-scrub::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: #ff5d29; border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.walk-card {
+  margin: 0.8rem 0.7rem 0;
+  padding: 0.85rem 1rem 0.9rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  min-height: 88px;
+}
+.walk-card .eyebrow { color: var(--muted); font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.walk-card h2 { margin: 0.15rem 0 0.3rem; font-size: 1.1rem; line-height: 1.25; }
+.walk-card .muted { font-size: 0.85rem; }
+
+.walk-list { margin: 1.1rem 0.7rem 1.5rem; }
+.walk-list .section-title { font-size: 1rem; color: var(--muted); margin: 0 0 0.5rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.walk-stops { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.walk-stop {
+  display: grid;
+  grid-template-columns: 4.6rem 1fr;
+  gap: 0.7rem;
+  padding: 0.55rem 0.6rem;
+  background: rgba(255,255,255,0.04);
+  border-left: 3px solid var(--accent-1, #ff5d29);
+  border-radius: 8px;
+  transition: background 0.18s ease, border-left-color 0.18s ease;
+}
+.walk-stop.is-off { border-left-color: rgba(255,255,255,0.18); opacity: 0.78; }
+.walk-stop.is-current {
+  background: linear-gradient(90deg, rgba(255,93,41,0.20), rgba(255,93,41,0.04));
+  border-left-color: #ffb800;
+}
+.walk-stop .ws-time { font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; color: var(--muted); padding-top: 0.1rem; }
+.walk-stop .ws-body { display: flex; flex-direction: column; }
+.walk-stop .ws-body strong { font-weight: 600; line-height: 1.25; }
+.walk-stop .ws-body em { font-style: normal; font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
+
+/* Always pulse the glow — gives the dot motion even while "sitting" so the
+   user can see WHERE the marker is at a glance. */
+@keyframes walkPulse {
+  0%, 100% { r: 3.6; opacity: 0.55; }
+  50%      { r: 5.4; opacity: 0.95; }
+}
+.walk-marker .wm-glow { animation: walkPulse 1.6s ease-in-out infinite; }

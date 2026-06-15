@@ -1,0 +1,48 @@
+{
+  "venue": {
+    "name": "Moscone West",
+    "city": "San Francisco",
+    "source": "https://www.ai.engineer/worldsfair/2026/map"
+  },
+  "floors": {
+    "1": {
+      "label": "Level 1 — Expo",
+      "image": "/static/venue/level-1.webp",
+      "width": 1200,
+      "height": 847
+    },
+    "2": {
+      "label": "Level 2 — Tracks",
+      "image": "/static/venue/level-2.webp",
+      "width": 1200,
+      "height": 800
+    },
+    "3": {
+      "label": "Level 3 — Main + Leadership",
+      "image": "/static/venue/level-3.webp",
+      "width": 1200,
+      "height": 800
+    }
+  },
+  "rooms": {
+    "Expo Stage 1": {"floor": 1, "x_pct": 15.2, "y_pct": 25.0, "label_on_plan": "Expo Stage NE"},
+    "Expo Stage 2": {"floor": 1, "x_pct": 58.6, "y_pct": 25.6, "label_on_plan": "Expo Stage NW"},
+    "Expo Stage 3": {"floor": 1, "x_pct": 15.5, "y_pct": 82.8, "label_on_plan": "Expo Stage SE"},
+    "Expo Stage 4": {"floor": 1, "x_pct": 60.2, "y_pct": 84.3, "label_on_plan": "Expo Stage SW"},
+
+    "Track 1": {"floor": 2, "x_pct": 24.0, "y_pct": 24.0},
+    "Track 2": {"floor": 2, "x_pct": 37.0, "y_pct": 24.0},
+    "Track 3": {"floor": 2, "x_pct": 51.0, "y_pct": 24.0, "label_on_plan": "Track 3 (Keynote Overflow)"},
+    "Track 4": {"floor": 2, "x_pct": 30.0, "y_pct": 47.0},
+    "Track 5": {"floor": 2, "x_pct": 44.0, "y_pct": 47.0},
+    "Track M": {"floor": 2, "x_pct": 59.0, "y_pct": 47.0, "label_on_plan": "Microsoft area"},
+    "Track 6": {"floor": 2, "x_pct": 61.0, "y_pct": 64.0},
+    "Track 7": {"floor": 2, "x_pct": 27.0, "y_pct": 64.0},
+    "Track 8": {"floor": 2, "x_pct": 37.0, "y_pct": 64.0},
+    "Track 9": {"floor": 2, "x_pct": 51.0, "y_pct": 64.0},
+
+    "Main Stage": {"floor": 3, "x_pct": 33.0, "y_pct": 35.0, "label_on_plan": "General Session Keynotes"},
+    "Leadership 1": {"floor": 3, "x_pct": 38.0, "y_pct": 65.0, "label_on_plan": "Leadership Sessions"},
+    "Leadership 2": {"floor": 3, "x_pct": 50.0, "y_pct": 65.0, "label_on_plan": "Leadership Sessions/Lunch"}
+  }
+}

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Walk preview · {{ day_short }} · WFSF{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ static_v('css/walk.css') }}" />
+
+<section class="walk-head">
+  <div class="wh-titles">
+    <p class="eyebrow">Walk preview · {{ venue.name or 'Moscone West' }}</p>
+    <h1 class="display sm">{{ day_short or 'Pick a day' }}</h1>
+  </div>
+  <nav class="walk-days" aria-label="Switch day">
+    {% for d in days_meta %}
+    <a class="walk-day-pill{% if d.index == day_index %} is-current{% endif %}{% if not d.count %} is-empty{% endif %}"
+       href="/walk/{{ d.index }}">
+      <span class="wdp-short">{{ d.short }}</span>
+      <span class="wdp-count">{{ d.count }} pick{{ '' if d.count == 1 else 's' }}</span>
+    </a>
+    {% endfor %}
+  </nav>
+</section>
+
+{% if not hops %}
+<div class="empty">
+  <p class="empty-eyebrow">No picks on {{ day_short or 'this day' }}</p>
+  <p class="muted">Save sessions in Browse to see your day's route here.</p>
+  <a class="btn primary" href="/browse?day={{ day_index }}">Browse {{ day_short }}</a>
+</div>
+{% else %}
+
+<section class="walk-stage" id="walk-stage" data-day-index="{{ day_index }}">
+  <div class="walk-floors" aria-hidden="true">
+    {% for level, fdata in floors.items() %}
+    <img class="walk-floor"
+         data-floor="{{ level }}"
+         src="{{ fdata.image }}"
+         alt="{{ fdata.label }}"
+         loading="{{ 'eager' if loop.first else 'lazy' }}"
+         draggable="false" />
+    {% endfor %}
+    <svg class="walk-overlay" id="walk-overlay" preserveAspectRatio="none" viewBox="0 0 100 100">
+      <defs>
+        <radialGradient id="markerGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="#ff5d29" stop-opacity="0.95" />
+          <stop offset="60%" stop-color="#ff5d29" stop-opacity="0.18" />
+          <stop offset="100%" stop-color="#ff5d29" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+      <!-- Per-floor route: dashed line connecting all on-floor stops, drawn
+           by JS when the current floor changes. -->
+      <path id="walk-trail" class="walk-trail" />
+      <!-- Small pins at every stop on the current floor; the "next" one is
+           white so the user sees where the marker is heading. Built by JS. -->
+      <g id="walk-pins"></g>
+      <!-- Room name labels for every room on the current floor — built by JS
+           from venue.json so the user can ground themselves on the plan. -->
+      <g id="walk-labels"></g>
+      <!-- The "you" marker. transform set by JS via setAttribute. -->
+      <g id="walk-marker" class="walk-marker" transform="translate(50 50)">
+        <circle r="3.6" class="wm-glow" fill="url(#markerGlow)" />
+        <circle r="1.8" class="wm-dot" />
+      </g>
+    </svg>
+  </div>
+  <p class="walk-floor-label" id="walk-floor-label" aria-live="polite"></p>
+</section>
+
+<section class="walk-controls" aria-label="Playback">
+  <button type="button" class="btn primary" id="walk-play" aria-pressed="false">
+    <span class="wp-icon" aria-hidden="true">▶</span>
+    <span class="wp-text">Play day</span>
+  </button>
+  <label class="walk-scrub-wrap">
+    <span class="vh">Scrub through the day</span>
+    <input id="walk-scrub" type="range" min="0" max="1000" step="1" value="0" class="walk-scrub" />
+  </label>
+  <button type="button" class="btn ghost" id="walk-rewind" aria-label="Restart">
+    <span aria-hidden="true">↺</span>
+  </button>
+</section>
+
+<aside class="walk-card" id="walk-card" aria-live="polite">
+  <p class="eyebrow" id="wc-eyebrow">Ready</p>
+  <h2 id="wc-title">Tap play to walk your day</h2>
+  <p class="muted" id="wc-meta"></p>
+</aside>
+
+<section class="walk-list">
+  <h2 class="section-title">Stops</h2>
+  <ol class="walk-stops">
+    {% for h in hops %}
+    <li class="walk-stop{% if h.off_venue %} is-off{% endif %}" data-idx="{{ loop.index0 }}">
+      <span class="ws-time">{{ h.start_time or '—' }}</span>
+      <span class="ws-body">
+        <strong>{{ h.title }}</strong>
+        <em>{{ h.room or 'Off-venue' }}{% if h.floor %} · L{{ h.floor }}{% endif %}</em>
+      </span>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+<script id="walk-data" type="application/json">
+{
+  "day_index": {{ day_index }},
+  "hops": [
+    {% for h in hops %}
+    {
+      "id": {{ h.id }},
+      "title": {{ h.title|tojson }},
+      "room": {{ (h.room or '')|tojson }},
+      "start_time": {{ (h.start_time or '')|tojson }},
+      "end_time": {{ (h.end_time or '')|tojson }},
+      "track": {{ (h.track or '')|tojson }},
+      "floor": {{ h.floor|tojson }},
+      "x_pct": {{ h.x_pct|tojson }},
+      "y_pct": {{ h.y_pct|tojson }},
+      "off_venue": {{ h.off_venue|tojson }}
+    }{{ "," if not loop.last else "" }}
+    {% endfor %}
+  ],
+  "floors": {
+    {% for level, fdata in floors.items() %}
+    "{{ level }}": {"label": {{ fdata.label|tojson }}, "w": {{ fdata.width }}, "h": {{ fdata.height }}}{{ "," if not loop.last else "" }}
+    {% endfor %}
+  },
+  "rooms": {{ all_rooms|tojson }}
+}
+</script>
+
+<script src="{{ static_v('js/walk.js') }}" defer></script>
+{% endif %}
+{% endblock %}

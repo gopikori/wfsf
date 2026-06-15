@@ -8,6 +8,7 @@
   </div>
   <div class="ph-meta">
     <span class="meta-pill" id="liveclock" {% if sim_label %}data-frozen="1"{% endif %}>{{ now.strftime('%a, %b %-d · %-I:%M %p') }}</span>
+    {% if day_index is not none %}<a class="meta-pill link" href="/walk/{{ day_index }}" title="Animated walk preview for today">↗ Walk preview</a>{% endif %}
   </div>
 </section>
 
