@@ -31,11 +31,12 @@
 
 **WFSF** (World's Fair San Francisco) is a single-event, mobile-first web app that lets an attendee of the **AI Engineer World's Fair 2026** (San Francisco, Jun 29 – Jul 2) build, refine, and use a personal conference schedule from their phone. The conference has ~554 sessions across 9+ parallel tracks over 4 days; the official program is volatile (many sessions are `tentative`/`hold`); attendees can't see everything. WFSF is the planning + on-floor companion that solves that.
 
-The app is a **server-rendered FastAPI app** with **HTMX-driven partial swaps**, **SQLite (WAL)** for storage, **Resend** for OTP email, and a **bottom-anchored, thumb-zone-first UI** with a drag-scrub timeline. There is no JS framework, no build step, no remote services beyond Resend. The whole thing is ~5,100 lines split roughly 1,500 Python / 1,500 CSS / 350 JS / 1,800 HTML.
+The app is a **server-rendered FastAPI app** with **HTMX-driven partial swaps**, **SQLite (WAL)** for storage, **Resend** for OTP email, optional **Cloudflare Turnstile** bot protection on login, and a **bottom-anchored, thumb-zone-first UI** with a drag-scrub timeline. There is no JS framework and no build step. Runtime network dependencies are the upstream conference JSON/MCP sources, Resend, and Turnstile only when configured. The current app code is ~7,600 lines including HTML/CSS/JS and vendored/static assets.
 
-The two distinguishing UX bets are:
-- **Bottom-anchored "day chrome"** — date tiles, scrubber, and time-pill strip live in the thumb zone, sticky per day-block, replacing the more common top filter bar.
+The three distinguishing UX bets are:
+- **Bottom-anchored "day chrome"** — date tiles, scrubber, and time-pill strip live in the thumb zone, fixed above the global nav and activated per day-block, replacing the more common top filter bar.
 - **Per-slot state + drag-scrub scrubber** — every time slot in a day gets a state (`primary` / `backup` / `conflict` / `past` / `empty`) derived from the user's picks, surfaced as proportional colored segments in a 24px bar at the bottom you can drag to jump anywhere in the day.
+- **Walk preview** — the user's primary picks can be replayed as an animated marker across real Moscone West floor plans, with floor changes, pins, labels, and a stop list.
 
 ---
 
@@ -95,13 +96,14 @@ Original PRD lives in `PRD.md`. The condensed version:
 │  Middleware:  SecurityHeadersMiddleware → CacheControlMiddleware │
 │  Mounts:      /static → StaticFiles                              │
 │  Routers:     auth_routes · browse · my_schedule · speakers      │
-│               profile · dayof · admin                            │
+│               profile · dayof · walk · admin                     │
 │  Helpers:     templating (Jinja env, filters, static_v)          │
 │               deps (current_user, current_admin)                 │
-│               auth (OTP issue/verify, session resolve)           │
+│               auth (OTP issue/verify, hashed session resolve)    │
+│               turnstile (optional login bot check)               │
 │  Domain:      sched (DAY_INDEX, conflict, travel, normalize)     │
 │               queries (read/write SQL, faceting)                 │
-│               sync (httpx + MCP fallback)                        │
+│               sync (httpx + MCP fallback) · venue floor mapping  │
 │  Background:  APScheduler — sync_all every 60m / 15m in event    │
 │  Email:       Resend SDK                                         │
 └────────────┬────────────────────────────────────────────────────┘
@@ -141,14 +143,16 @@ Original PRD lives in `PRD.md`. The condensed version:
 | Frontend | HTMX (vendored, no CDN) + minimal vanilla JS | Zero build step, hypermedia over JSON |
 | DB | SQLite (stdlib) with WAL | Single-volume deploy, trivial backup, plenty of headroom |
 | Email | Resend SDK | Simple OTP delivery |
+| Bot protection | Cloudflare Turnstile | Optional login challenge; active only when both keys are configured |
 | Hashing | argon2-cffi | Listed in deps but unused in current code; OTPs use HMAC-SHA256 against `SESSION_SECRET` |
 | Scheduler | APScheduler (AsyncIOScheduler) | Periodic schedule sync |
 | HTTP client | httpx | Sync client used in sync.py |
 | Settings | pydantic-settings | `.env` loader with type coercion |
 | Forms / files | python-multipart | Multipart parsing |
 | Dep mgmt | uv via `pyproject.toml` | Fast install, modern lockfile |
+| Lockfile | `uv.lock` | Present for reproducible Render deploys |
 
-**Not used**: AlpineJS (referenced in coding guidelines but not in the templates), service worker beyond a trivial cache shell, any JS bundler, any CSS preprocessor, any test framework (yet).
+**Not used**: AlpineJS (referenced in coding guidelines but not in the templates), any JS bundler, any CSS preprocessor, any test framework (yet).
 
 ---
 
@@ -169,10 +173,10 @@ Identifies a person.
 | `created_at`, `last_login_at` | TEXT (UTC ISO) | |
 
 #### `sessions`
-HTTP login sessions (cookie value `wfsf_session`).
+HTTP login sessions. The browser cookie carries the raw random token; the database stores only `SHA-256(token)`.
 | Col | Type | Notes |
 |---|---|---|
-| `id` | TEXT PK | 32-byte url-safe random (`secrets.token_urlsafe`) |
+| `id` | TEXT PK | SHA-256 hex digest of the 32-byte url-safe random token |
 | `user_id` | FK → users | `ON DELETE CASCADE` |
 | `expires_at` | TEXT | Default 30 days from issue |
 | `user_agent`, `ip` | TEXT | Truncated to 300 / 64 chars |
@@ -301,6 +305,16 @@ The labels (`"Day 1 — Workshop Day"` etc.) come from the upstream JSON's `"day
 
 `floor_for(room)` returns `"1"|"2"|"3"|None`.
 
+### Venue map data
+
+`app/venue.py` reads `app/static/venue/venue.json` once via `lru_cache`. It exposes:
+- `venue_info()` — Moscone West metadata.
+- `floors()` — floor labels and image paths for Levels 1-3.
+- `rooms()` / `room(name)` — room centroid data.
+- `locate(session_room)` — `{floor, x_pct, y_pct, label_on_plan?}` or `None`.
+
+The walk preview uses this data to map itinerary sessions onto WebP floor-plan images in `app/static/venue/`.
+
 ### Time parsing
 
 `parse_time_range("9:00am-11:00am") → ("09:00", "11:00")` — splits on `-` or `–`, parses `[H:Mam|pm]`, returns 24h `HH:MM` strings. Returns `(None, None)` on malformed input. Both `am/pm` and noon/midnight edge cases handled.
@@ -383,6 +397,14 @@ APScheduler `IntervalTrigger` registered at lifespan start with `coalesce=True, 
 
 All auth logic lives in `app/auth.py`. Passwords don't exist.
 
+### Optional Turnstile gate
+
+`app/turnstile.py` enables Cloudflare Turnstile only when both `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are configured.
+- `/login/request` verifies the submitted `cf-turnstile-response` before issuing an OTP.
+- Verification posts to Cloudflare's `siteverify` endpoint with the client IP when available.
+- Missing token, network errors, and non-success verdicts all fail closed.
+- When not configured, `turnstile.verify()` returns `True` so local/dev login stays unchanged.
+
 ### OTP issue (`request_otp`)
 1. Normalize + validate email.
 2. Rate-limit per-email and per-IP (`_rate_limited()` checks against `rate_limit` table).
@@ -399,16 +421,16 @@ All auth logic lives in `app/auth.py`. Passwords don't exist.
 3. `hmac.compare_digest(stored_hash, hash_of_attempt)` — constant time.
 4. On mismatch: `bad_attempts += 1` and bail.
 5. On match: consume the code; create the user if first login (role from `ADMIN_EMAILS` set; else `user`); refuse if disabled; update `last_login_at`.
-6. Issue `secrets.token_urlsafe(32)` as the session token, insert into `sessions` with `expires_at = now + SESSION_TTL_DAYS`.
+6. Issue `secrets.token_urlsafe(32)` as the browser session token, insert `SHA-256(token)` into `sessions` with `expires_at = now + SESSION_TTL_DAYS`.
 
 ### Cookie
 Set in `auth_routes.py:login_verify`:
 - `httponly=True`, `samesite="lax"`, `path="/"`
-- `secure=False` (TODO: flip to True behind TLS)
+- `secure=settings.COOKIE_SECURE` (default `True`; set false only for plain-HTTP local/LAN dev)
 - `max_age = SESSION_TTL_DAYS * 86400`
 
 ### Resolution
-`deps.py:current_user_optional` reads the cookie and calls `auth.resolve_session(token)`, which returns `CurrentUser` if the row exists, is unexpired, and the user is `active`.
+`deps.py:current_user_optional` reads the cookie and calls `auth.resolve_session(token)`. `resolve_session()` hashes the presented token and returns `CurrentUser` only if the stored digest exists, is unexpired, and the user is `active`.
 
 `deps.current_user` is the protected variant — raises 302 to `/login` if no session, or for HTMX requests raises 401 with `HX-Redirect: /login` header (HTMX picks up the redirect cleanly without a hard nav).
 
@@ -428,7 +450,7 @@ In FastAPI, `add_middleware` registers in stack order. Last-added runs **first**
 
 | Class | Adds |
 |---|---|
-| `SecurityHeadersMiddleware` (`main.py:27`) | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, and a `Content-Security-Policy` that allows self + Google Fonts + inline styles/scripts. |
+| `SecurityHeadersMiddleware` (`main.py`) | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security`, `Permissions-Policy`, and a CSP that allows self, Google Fonts, inline styles/scripts, and Cloudflare Turnstile challenge scripts/frames. |
 | `CacheControlMiddleware` (`main.py:50`) | Sets `Cache-Control` per response — see [§15 Caching](#15-caching-strategy). |
 
 ### Routers and endpoints
@@ -462,6 +484,12 @@ In FastAPI, `add_middleware` registers in stack order. Last-added runs **first**
 |---|---|---|
 | GET | `/day-of` | `dayof.html` — now / next / upcoming-today; suggestions if you have a gap |
 
+#### `walk` (`/walk`)
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/walk` | First picked day with primary sessions, falling back to day 0 |
+| GET | `/walk/{day_index}` | `walk.html` — animated route over Moscone West floor plans |
+
 #### `speakers` (`/speakers`)
 | Method | Path | Returns |
 |---|---|---|
@@ -494,7 +522,7 @@ All four mutate-user endpoints enforce "**cannot disable or demote the last rema
 | GET | `/` | 302 → `/login`, `/day-of`, or `/browse` depending on auth + date |
 | GET | `/healthz` | `{"status": "ok"}` |
 | GET | `/manifest.webmanifest` | PWA manifest JSON |
-| GET | `/service-worker.js` | A ~15-line cache-first SW that caches the SHELL and falls back to `/browse` |
+| GET | `/service-worker.js` | Static-asset-only service worker; authenticated HTML is never cached |
 
 ### HTMX patterns used
 
@@ -504,7 +532,7 @@ All four mutate-user endpoints enforce "**cannot disable or demote the last rema
 | Form-driven swaps | Filters form on `/browse` with `hx-trigger="change from:#filters delay:50ms, …"` | `browse.html` |
 | Cross-form input borrowing | `hx-include="#filters input:not([name='day'])"` on day tiles | `partials/session_list.html` |
 | Bottom sheet | `data-open-sheet="filter-sheet"` + `aria-hidden` toggle in `app.js:bindSheet` | `browse.html`, `partials/filter_sheet.html` |
-| Out-of-band swaps | Not used currently |  |
+| Out-of-band swaps | Save/unsave responses include `partials/day_chrome.html` with `hx-swap-oob="outerHTML"` so the affected day chrome refreshes live | `partials/save_button.html` |
 | `HX-Redirect` for auth flows | Server sets `HX-Redirect: /` after OTP verify; HTMX nav-redirects | `auth_routes.py:login_verify` |
 | Confirm modals | `hx-confirm="Remove this session…"` on My Schedule remove | `partials/my_schedule_body.html` |
 | Scroll on swap | `hx-swap="outerHTML scroll:window:top"` on day-tile clicks | `partials/session_list.html` |
@@ -519,23 +547,27 @@ All four mutate-user endpoints enforce "**cannot disable or demote the last rema
 - `templates` — a thin wrapper over `Jinja2Templates` with both the old (`name, ctx`) and new Starlette 1.x (`request, name, ctx`) calling conventions.
 - Filters registered: `track_color`, `display_time`, `status_class`, `twitter_handle`.
 - Global `static_v(path)` — content-hashed asset URL helper. See [§15 Caching](#15-caching-strategy).
+- Global `last_sync_label()` — short "Updated X ago" label from the last successful sessions sync, shown in the topbar about panel.
+- Global `app_base_url()` — absolute base URL for Open Graph/Twitter image URLs.
+- Globals `turnstile_enabled()` / `turnstile_site_key()` — template hooks for optional Turnstile widgets.
 - `is_htmx(request)` and `hx_target(request)` helpers used in routers to branch on partial vs. full response.
 
 `track_color(track)` uses a small hand-curated palette for known track keywords ("agents" → orange, "evals" → cyan, "rag" → purple, …) and falls back to a deterministic hash bucket from a fixed 24-color palette. Returned color drives the left-edge stripe (`--track`) on session cards and the dot in track tags.
 
 ### CSS
 
-Three stylesheets, no preprocessor.
+Four app stylesheets, no preprocessor.
 
 | File | Lines | Concern |
 |---|---:|---|
-| `app.css` | 545 | Global tokens (CSS vars), topbar, bottom-nav, login chrome, generic session-card, toasts, day-band fallback (used by `my_schedule_body.html`) |
+| `app.css` | 632 | Global tokens (CSS vars), topbar/about panel, bottom-nav, login chrome, generic session-card, toasts, day-band fallback |
 | `filters.css` | 333 | Search bar, filter chips, bottom sheet, "Attending" buttons, calendar-tile day-chips (legacy top-row + new bottom-row reuse) |
-| `agenda.css` | 597 | Browse view: day-block layout, day-chrome (bottom-anchored), time-pill strip, shape-bar scrubber, shape-lens, slot-band dividers, compact session-card, day-tile day-switcher |
+| `agenda.css` | 609 | Browse view: day-block layout, fixed day-chrome, time-pill strip, shape-bar scrubber, shape-lens, slot-band dividers, compact session-card, day-tile day-switcher |
+| `walk.css` | 204 | Walk preview floor-plan stage, controls, scrubber, card, and stop list |
 
 Key CSS vars in `app.css:root`:
 ```
---bottom-nav-h:   64px      (drives sticky-stack offsets)
+--bottom-nav-h:   64px      (drives fixed bottom chrome/nav offsets)
 --topbar-h:       60px → 52px@560px
 --pad:            20px      (.page horizontal padding)
 --accent:         orange family
@@ -543,11 +575,11 @@ Key CSS vars in `app.css:root`:
 --danger:         conflict red
 ```
 
-The bottom day-chrome is positioned with `sticky bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom))` so it always sits just above the global Browse/Schedule nav. The chrome's own children (time-strip, shape-bar, day-tiles) flow normally inside.
+The bottom day-chrome is `position: fixed` just above the global Browse/Schedule nav. `bindDayChromeSwitch()` uses an `IntersectionObserver` over `.day-block` sections so exactly one chrome is `.is-active` at a time. The chrome's own children (time-strip, shape-bar, day-tiles) flow normally inside.
 
 ### JavaScript
 
-`app/static/js/app.js` (350 LOC, all in one IIFE — no module system).
+`app/static/js/app.js` (445 LOC, all in one IIFE — no module system) handles the shared UI. `app/static/js/walk.js` (230 LOC) is loaded only by `walk.html`.
 
 Key functions:
 
@@ -555,13 +587,14 @@ Key functions:
 |---|---|
 | `bindClock()` | Updates `#liveclock` (top of Day-Of) every 30s |
 | `bindCountdowns()` | `.countdown[data-start]` → "Starts in 14m" |
-| `bindToasts()` | Listens to `htmx:afterSwap` for `.save-form` swaps, flashes a toast |
+| `bindToasts()` | Keeps the result count in sync after swaps; flashes save/unsave toasts from `htmx:afterRequest` so OOB swaps don't double-fire |
 | `bindSheet()` | `data-open-sheet="ID"` opens the sheet (sets `aria-hidden=false`); `data-close-sheet` closes |
 | `bindTypeahead()` | Filters `.opt-row[data-label]` in the bottom sheet by an input's value |
 | `bindActiveChipRemove()` | Removes a filter chip by toggling the corresponding form input |
 | `scrollToSlot()`, `markCurrentPill()`, `bindTimeStrip()`, `autoAnchorNow()` | Time-pill navigation + auto-jump to nearest slot when "today" |
 | `bindSlotObserver()` | IntersectionObserver on `.slot-block[id]` — marks the current pill as you scroll |
 | `bindShapeBarScrub()` | The big one: pointer-events-based drag scrubber on `.shape-bar` |
+| `bindDayChromeSwitch()` | IntersectionObserver over day blocks — toggles the fixed bottom chrome for the day in view |
 | `ensureShapeLens()`, `updateShapeLens()`, `hideShapeLens()` | Lazy lens DOM creation + position/content updates |
 
 #### The shape-bar scrubber
@@ -580,7 +613,16 @@ The **shape-lens** is a `position: fixed` bubble appended to `<body>` lazily. It
 
 State labels and glyphs live in `SHAPE_STATE_GLYPH` / `SHAPE_STATE_LABEL` JS constants. Per-segment data flows from the template via `data-time`, `data-display-time`, `data-state`, `data-count`, `data-picked`.
 
-All bindings are re-attached on `htmx:afterSwap` of `#results-region` (the bindings guard via `dataset.bound === '1'` to avoid double-binding).
+All browse bindings are re-attached on `htmx:afterSwap` of `#results-region` (the bindings guard via `dataset.bound === '1'` where needed). After save/unsave, `htmx:afterSettle` reasserts `.is-active` on the OOB-swapped day chrome and rebinds the new `.shape-bar`.
+
+#### Walk preview JS
+
+`walk.js` reads JSON from `<script id="walk-data">` and builds a simple playback timeline:
+- `sit` segments hold at each mapped stop for ~1.4s.
+- `hop` segments ease between mapped stops for ~1s.
+- Cross-floor hops switch the visible floor image at the midpoint.
+- The SVG overlay renders room labels, pins, a dashed route trail, and a marker whose SVG `transform` is controlled only by JS.
+- The range input scrubs the virtual timeline; the stop list jumps to a specific segment.
 
 ### Static asset cache busting
 
@@ -589,10 +631,12 @@ See [§15 Caching](#15-caching-strategy) for the full story. Every `<link>` and 
 ### Service worker
 
 `/service-worker.js` is served inline from `main.py:156`. It's a ~15-line cache-first SW that:
-- On `install`: caches `['/', '/browse', '/my-schedule', '/static/css/app.css', '/static/js/app.js']`
-- On `fetch`: tries the network, caches the response on success, falls back to cache (and finally to `/browse`) on failure
+- Uses cache name `wfsf-v2`.
+- On `install`: pre-caches only `/static/css/app.css` and `/static/js/app.js`.
+- On `activate`: deletes old caches.
+- On `fetch`: handles same-origin `GET /static/...` only; HTML and authenticated pages are never cached.
 
-This gives a usable shell on flaky Wi-Fi at the venue without any cache versioning ceremony — the asset URLs change on every content edit, so the SW naturally re-caches.
+This keeps long-lived asset caching without leaving per-user HTML in Cache Storage after logout or on a shared device.
 
 ---
 
@@ -604,13 +648,15 @@ Two-step inside one card:
 1. **Email step** — input + "Send code". Submits to `/login/request` via HTMX, replaces only the form region with the code step.
 2. **Code step** — masked 6-digit input + "Sign in". Submits to `/login/verify`; success returns empty body + `HX-Redirect: /`.
 
+If Turnstile is configured, the email step includes an explicitly rendered Cloudflare widget. The base template re-renders Turnstile widgets after HTMX swaps so returning to the email form does not leave an uninitialized challenge.
+
 Errors come back in the same partial with `message` and `ok=false`.
 
 ### `/browse` (the centerpiece)
 
 ```
 ┌───────────────────────────────────────┐
-│ topbar: WFSF · email · Sign out       │
+│ topbar: WFSF · email · Sign out · i   │
 ├───────────────────────────────────────┤
 │ ALL SESSIONS                          │
 │ Browse the program · 558 matching     │
@@ -628,7 +674,7 @@ Errors come back in the same partial with `message` and `ok=false`.
 │ ── slot 11:05am ──                    │
 │ … more cards …                        │
 │                                       │
-│ ============== day chrome ============│ ← sticky bottom
+│ ============== day chrome ============│ ← fixed bottom, active day only
 │ 9:00am 11:05am 12:10pm 1:15pm 2:20pm  │ time pills
 │ ▓▓▓░░▓▓░░░░▓▓▓░░░░░░▓▓░    scrub day │ shape-bar scrubber
 │ [MON 29][TUE 30][WED 1][THU 2]       │ day tiles
@@ -640,7 +686,7 @@ Errors come back in the same partial with `message` and `ok=false`.
 - **Filters form** (`<form id="filters">`) collects: `q` (search), `type[]`, `track[]`, `room[]`, hidden `day[]`. Auto-submits on change with HTMX, swaps `#results-region`.
 - **Bottom sheet**: tap "≡ Filters" → opens `partials/filter_sheet.html` with searchable Track (49) and Room (17) lists, faceted counts that respect "all filters except this dimension".
 - **Active chip strip**: at the top of `results-region`, each active filter shows as a removable orange chip; clicking the ✕ toggles the corresponding form input and re-submits.
-- **Day chrome** (per-day, sticky bottom): see `agenda.css` and §10 above. Time pills navigate; shape-bar drags; day-tiles switch the filter.
+- **Day chrome** (per-day, fixed bottom): see `agenda.css` and §10 above. Time pills navigate; shape-bar drags; day-tiles switch the filter. Save/unsave responses refresh the affected chrome out-of-band so slot state changes immediately.
 - **Cards** are `.session-card.compact` with track stripe + title + meta + "+ Attending" button + start→end time.
 
 ### `/session/{id}`
@@ -655,6 +701,8 @@ Vertical timeline grouped by day. Each item shows track stripe, time, title, sta
 
 Top banner: "Heads up — changes to your saved sessions" pulled from `session_changes` (last 72h).
 
+When the user has at least one pick, a "Walk preview" meta-pill links to `/walk`.
+
 ### `/day-of`
 
 Date-aware view:
@@ -665,6 +713,18 @@ Date-aware view:
   - "Later today" list — next ~5 upcoming.
   - **Gap guidance** — if you have nothing happening now, surfaces ≤5 sessions starting in the next 90 min from your interest tracks (`user_prefs.interest_tracks_json`).
   - "Live changes to your saved picks" — last 72h of `session_changes` for your itinerary.
+  - "Walk preview" meta-pill links to `/walk/{today}` when a day index is known.
+
+In dev mode (`DEV_OTP_LOG=true`), `/day-of?as_of=<ISO>` renders the view as if the current time were that timestamp. The template shows a simulation banner and freezes the live clock/countdowns.
+
+### `/walk`, `/walk/{day_index}`
+
+Animated route preview for the user's primary picks:
+- `/walk` chooses the earliest day with primary picks, else day 0.
+- `/walk/{day_index}` validates the day and renders a day picker, floor-plan stage, playback controls, current-stop card, and stop list.
+- Only primary itinerary entries animate; backups are excluded.
+- Mapped rooms move the marker across the floor plan; off-venue/unmapped stops remain in the stop list but do not animate to a new coordinate.
+- Floor plans are `level-1.webp`, `level-2.webp`, `level-3.webp`; room centroids live in `venue.json`.
 
 ### `/speakers`, `/speakers/{name}`
 
@@ -685,6 +745,12 @@ Interest tracks (multi-select checkboxes against `distinct_facets()['tracks']`),
 
 Admin can never view a user's `itinerary` rows. The only fields exposed in the table are identity + status.
 
+### Topbar about panel and social previews
+
+Authenticated pages include a small `i` details popover in the topbar with the WFSF mark, event dates, a short app description, last successful sessions-sync label, and a feedback `mailto:`.
+
+`base.html` also emits description, Open Graph, and Twitter card metadata. The card image is `app/static/og/og-card.png`; absolute URLs come from `APP_BASE_URL`, so that value must be correct in deployed environments.
+
 ---
 
 ## 12. Configuration & environment
@@ -694,15 +760,18 @@ Defined in `app/config.py` via `pydantic_settings.BaseSettings`. All values are 
 | Setting | Default | Purpose |
 |---|---|---|
 | `APP_NAME` | `"WFSF"` | Display name |
-| `APP_BASE_URL` | `http://localhost:10000` | Used in email link text (not currently linked) |
+| `APP_BASE_URL` | `http://localhost:10000` | Used for absolute Open Graph/Twitter URLs and email context |
 | `APP_PORT` | `10000` | Default port for `python -m app` runner |
 | `APP_HOST` | `0.0.0.0` | Default bind |
 | `DATABASE_PATH` | `data/wfsf.db` | SQLite file location; parent dir auto-created |
 | `SESSION_SECRET` | `change-me-in-prod-please` | HMAC key for OTP hashing (rotate → invalidates outstanding OTPs) |
 | `SESSION_COOKIE_NAME` | `wfsf_session` | |
 | `SESSION_TTL_DAYS` | `30` | |
+| `COOKIE_SECURE` | `True` | Marks the session cookie Secure; set false only for plain-HTTP dev |
 | `RESEND_API_KEY` | `""` | Resend SDK key. If empty, sends fall back to log-only. |
 | `RESEND_FROM` | `WFSF <onboarding@resend.dev>` | Sender |
+| `TURNSTILE_SITE_KEY` | `""` | Cloudflare Turnstile site key; both keys required to enable |
+| `TURNSTILE_SECRET_KEY` | `""` | Cloudflare Turnstile secret key |
 | `ADMIN_EMAILS` | `""` | Comma-separated; seeded on startup AND on first OTP verify |
 | `OTP_TTL_MINUTES` | `10` | |
 | `OTP_MAX_PER_HOUR` | `5` | Per-email cap; per-IP cap is 3× this |
@@ -716,13 +785,13 @@ Defined in `app/config.py` via `pydantic_settings.BaseSettings`. All values are 
 | `SESSIONS_URL` | `https://www.ai.engineer/worldsfair/2026/sessions.json` | Primary sessions source |
 | `SPEAKERS_URL` | `https://www.ai.engineer/worldsfair/2026/speakers.json` | Speakers source |
 | `MCP_URL` | `https://www.ai.engineer/worldsfair/2026/mcp` | MCP fallback for sessions |
-| `DEV_OTP_LOG` | `True` | Prints OTPs to stdout; required when `RESEND_API_KEY` is empty |
+| `DEV_OTP_LOG` | `False` | Prints OTPs to stdout and enables `/day-of?as_of=...` simulation in dev |
 
 `.env.example` ships in the repo as a template. `.env` is gitignored.
 
 ### Runner
 
-`app/__main__.py` is the canonical entrypoint. `python -m app` → `uvicorn.run("app.main:app", host=APP_HOST, port=APP_PORT, reload=True)`. Reload can be disabled with `APP_RELOAD=0`.
+`app/__main__.py` is the canonical entrypoint. `python -m app` → `uvicorn.run("app.main:app", host=APP_HOST, port=APP_PORT, reload=APP_RELOAD)`. `APP_RELOAD` defaults off (`0`/false).
 
 ---
 
@@ -737,18 +806,19 @@ python -m venv .venv
 source .venv/bin/activate
 uv pip install -e .
 cp .env.example .env
-# edit .env: set SESSION_SECRET (random long string), ADMIN_EMAILS=you@..., RESEND_API_KEY (or leave empty + keep DEV_OTP_LOG=true)
+# edit .env: set SESSION_SECRET, ADMIN_EMAILS, RESEND_API_KEY or DEV_OTP_LOG=true
+# for local plain HTTP, set COOKIE_SECURE=false
 ```
 
 ### Run
 
 ```bash
 python -m app
-# → http://localhost:10000  (reload enabled)
+# → http://localhost:10000  (set APP_RELOAD=1 for auto-reload)
 # → http://<your-LAN-IP>:10000 from another device on the same network
 ```
 
-The dev OTP appears in stdout as `DEV OTP for you@example.com: 123456` when `DEV_OTP_LOG=true`.
+The dev OTP appears in stdout as `DEV OTP for you@example.com: 123456` when `DEV_OTP_LOG=true`. In production, keep `DEV_OTP_LOG=false` and configure Resend.
 
 ### First login
 
@@ -770,7 +840,7 @@ The dev OTP appears in stdout as `DEV OTP for you@example.com: 123456` when `DEV
 
 ### Hot iteration
 
-- Python edits → uvicorn `reload=True` picks up in ~1s.
+- Python edits → set `APP_RELOAD=1` to have uvicorn auto-reload in ~1s. Default reload is off.
 - Template edits → Jinja reads per request; no reload needed.
 - CSS / JS edits → `static_v()` recomputes the hash on next request; browser fetches the new URL → no manual refresh.
 
@@ -797,17 +867,20 @@ Returns `{'sessions': {'seen': N, 'changed': K, 'deleted': D}, 'speakers': {'see
 | Concern | Mitigation |
 |---|---|
 | Passwords | None — OTP only |
+| Login bot abuse | Optional Cloudflare Turnstile on OTP request; active only when both Turnstile keys are configured; verification fails closed |
 | OTP brute force | 6-digit code, 10-min TTL, 5 bad attempts per code, 5 issues per email per hour, 15 per IP per hour |
 | OTP at rest | `HMAC-SHA256(SESSION_SECRET, "email|code")` — never stored plaintext |
 | OTP delivery | Out-of-band email; if Resend fails and dev-log is off, the OTP is dropped (no fallback path) |
 | Constant-time compare | `hmac.compare_digest` for code verification |
-| Session hijack | `httpOnly` + `SameSite=lax` cookie; server-side token store; revocable on logout, on admin disable, and per-user via `invalidate_user_sessions` |
-| TLS | Cookie is `secure=False` — set behind TLS, flip the flag before going public |
+| Session hijack | `httpOnly` + `Secure` + `SameSite=lax` cookie by default; only SHA-256 token digests stored server-side; revocable on logout, on admin disable, and per-user via `invalidate_user_sessions` |
+| TLS | `COOKIE_SECURE=True` by default; Render terminates HTTPS. Set `COOKIE_SECURE=false` only for local/LAN HTTP dev. |
 | User-id forgery | `user_id` never read from client input; always derived from cookie via `Depends(current_user)` |
 | Cross-user data leak | Every itinerary query is `WHERE user_id = :session_user`; admin endpoints never SELECT from `itinerary` |
 | Admin lockout | Last-active-admin guard on disable + demote |
 | Audit trail | Every admin action logged to `admin_audit` with actor + target |
-| Headers | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, CSP (`script-src 'self' 'unsafe-inline'` to allow the small inline SW registration) |
+| Headers | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Strict-Transport-Security`, `Permissions-Policy`, CSP with Cloudflare Turnstile script/frame allowances |
+| HTMX history cache | `<main hx-history="false">` disables client-side snapshot storage of authenticated pages |
+| Service worker cache | Caches same-origin `/static/...` assets only; never caches authenticated HTML |
 | CSRF | Cookies are `SameSite=lax`. No anti-CSRF token on POSTs — relies on SameSite. Workable for the threat model (no money, no irreversible writes, single-event) but worth adding before any broader use. |
 | Secret rotation | Rotating `SESSION_SECRET` invalidates all outstanding OTPs (their hash changes) but **not** existing sessions (token is random, not derived). Acceptable. |
 | Email enumeration | OTP request returns identical UX for known and unknown emails ("Code sent. Check your email."). Disabled accounts get an explicit "this account has been disabled" — small leak, acceptable trade for UX. |
@@ -849,6 +922,7 @@ Skips if a route already set `cache-control` itself.
 - HTML embeds the latest asset URL.
 - If an asset URL is new, phone fetches and caches it forever.
 - If unchanged, phone uses its local cache — zero round-trip.
+- The service worker reinforces this only for `/static/...`; personalized pages never enter Cache Storage.
 
 This makes UI iteration ship instantly without users having to hard-refresh.
 
@@ -881,49 +955,52 @@ This makes UI iteration ship instantly without users having to hard-refresh.
 |---|---|
 | **Tests** | None yet. CLAUDE.md mandates "real-system tests, no mocks" — fixture story for SQLite isn't built. |
 | **Type checker** | `uvx ty` is required by guidelines but no `ty.toml`; types are mostly inferred. |
-| **Cookie `secure=True`** | Currently False — must be flipped before TLS deployment. |
 | **CSRF tokens** | Not implemented; relying on SameSite=lax + httpOnly. Add anti-CSRF before broader use. |
 | **Reminders** | `user_prefs.reminders_enabled` is wired to UI but no notification path. Browser `Notification.permission` is requested in `app.js:bindReminders` but no actual scheduled notifications fire. |
 | **Push notifications** | Not implemented. |
 | **CSP `'unsafe-inline'`** | Required by the inline SW-registration script in `base.html`. Could be removed by moving that to an external JS file. |
 | **`argon2-cffi` dep** | Declared in `pyproject.toml` but not imported. Leftover from earlier password design. |
-| **Per-room floor map** | Hard-coded in `sched.py:ROOM_FLOOR`. New venue rooms won't have floors. |
+| **File size guideline drift** | `app.css`, `agenda.css`, and `app.js` exceed the 350-400 line local guideline and should be split when touched. |
+| **Per-room floor map** | Hard-coded in `sched.py:ROOM_FLOOR`; walk centroids are in `venue.json`. New venue rooms need both mappings updated. |
 | **Speaker → session join** | Uses `LIKE '%{name}%'` against `speakers_json`. Brittle for substring collisions; works because conference speaker names are distinctive. |
 | **Onboarding flow** | The `/onboarding` route exists but `current_user` doesn't redirect to it on first login. Onboarding is only reachable directly. |
 | **Initial page size** | All sessions render inline; no day-paginated initial render. Fine for 554 rows. |
 | **No deletion of empty `sync_log` rows** | They accumulate at 1/hour. Not a problem for a 4-day event. |
-| **Service worker version** | Hardcoded `CACHE='wfsf-v1'`. Bump if you change the SW. Asset URLs are content-hashed so cache busting works regardless, but the SW's `SHELL` list won't update without a version bump. |
+| **Service worker shell list** | Hardcoded `CACHE='wfsf-v2'` and static shell files. Bump the cache name if SW behavior or pre-cached shell assets change. |
 
 ---
 
 ## 18. File index
 
-### Python (app/, ~1,500 LOC)
+### Python (app/, ~2,300 LOC)
 | File | LOC | Role |
 |---|---:|---|
 | `__main__.py` | 18 | Uvicorn runner — `python -m app` |
-| `config.py` | 50 | Pydantic settings + `.env` loader |
-| `db.py` | 204 | Schema, `db()` and `tx()` context managers, admin seeding |
-| `auth.py` | 183 | OTP issue/verify, session resolve/invalidate, rate limit |
-| `deps.py` | 32 | FastAPI dependencies — `current_user`, `current_admin` |
-| `email.py` | 47 | Resend wrapper + HTML/text OTP rendering |
-| `main.py` | 178 | FastAPI app, middleware, lifespan, `/`, `/healthz`, `/manifest.webmanifest`, `/service-worker.js`, 404 |
-| `queries.py` | 307 | All SQL — list/get sessions, facets, itinerary, conflicts, speakers, changes |
-| `sched.py` | 187 | DAY/ROOM constants, time parsing, normalization, conflict + travel logic |
-| `sync.py` | 275 | Fetch (httpx + MCP fallback), upsert, soft-delete, sync_log |
-| `templating.py` | 117 | Jinja env, filters, `static_v()` hash helper |
-| `routers/auth_routes.py` | 65 | `/login`, `/login/request`, `/login/verify`, `/logout` |
-| `routers/browse.py` | 226 | `/browse`, `/browse/facets`, `/session/{id}`, save/unsave |
+| `config.py` | 65 | Pydantic settings + `.env` loader, cookie/Turnstile settings |
+| `db.py` | 203 | Schema, `db()` and `tx()` context managers, admin seeding |
+| `auth.py` | 189 | OTP issue/verify, hashed session resolve/invalidate, rate limit |
+| `deps.py` | 31 | FastAPI dependencies — `current_user`, `current_admin` |
+| `email.py` | 46 | Resend wrapper + HTML/text OTP rendering |
+| `main.py` | 187 | FastAPI app, middleware, lifespan, routers, `/`, `/healthz`, `/manifest.webmanifest`, `/service-worker.js`, 404 |
+| `queries.py` | 317 | All SQL — list/get sessions, facets, itinerary, conflicts, speakers, changes, last-sync label |
+| `sched.py` | 186 | DAY/ROOM constants, time parsing, normalization, conflict + travel logic |
+| `sync.py` | 274 | Fetch (httpx + MCP fallback), upsert, soft-delete, sync_log |
+| `templating.py` | 201 | Jinja env, filters, globals, `static_v()` hash helper |
+| `turnstile.py` | 44 | Optional Cloudflare Turnstile verification |
+| `venue.py` | 52 | Cached venue/floor/room centroid loader for walk preview |
+| `routers/auth_routes.py` | 80 | `/login`, `/login/request`, `/login/verify`, `/logout` |
+| `routers/browse.py` | 281 | `/browse`, `/browse/facets`, `/session/{id}`, save/unsave, OOB day-chrome data |
 | `routers/my_schedule.py` | 67 | `/my-schedule` + remove + backup-toggle |
-| `routers/dayof.py` | 117 | `/day-of` — now/next/upcoming/gap-suggest |
+| `routers/dayof.py` | 136 | `/day-of` — now/next/upcoming/gap-suggest + dev time simulation |
 | `routers/speakers.py` | 31 | `/speakers`, `/speakers/{name}` |
 | `routers/profile.py` | 89 | `/profile`, `/onboarding` |
-| `routers/admin.py` | 148 | `/admin`, user CRUD + audit |
+| `routers/admin.py` | 147 | `/admin`, user CRUD + audit |
+| `routers/walk.py` | 99 | `/walk`, `/walk/{day_index}` animated venue route |
 
-### Templates (app/templates/, ~700 LOC)
+### Templates (app/templates/, ~1,000 LOC)
 | File | Role |
 |---|---|
-| `base.html` | Layout, topbar, bottom-nav, asset links via `static_v`, SW registration |
+| `base.html` | Layout, topbar/about panel, bottom-nav, OG/Twitter meta, asset links via `static_v`, Turnstile loader, SW registration |
 | `browse.html` | Browse view shell — search bar, type chips, hidden day filter state, results region, filter sheet shell |
 | `login.html` | Sign-in card with two-step form |
 | `my_schedule.html` | Wraps `partials/my_schedule_body.html` |
@@ -934,8 +1011,10 @@ This makes UI iteration ship instantly without users having to hard-refresh.
 | `profile.html` | Interest tracks + reminders toggle |
 | `onboarding.html` | First-login interest picker |
 | `admin.html` | Stats, user table, invite form, audit log |
+| `walk.html` | Animated venue walk preview |
 | `404.html` | Friendly not-found page |
-| `partials/session_list.html` | The core: day-blocks → slot-blocks → cards → bottom day-chrome (time pills, scrubber, day tiles) |
+| `partials/session_list.html` | The core: day-blocks → slot-blocks → cards; includes `day_chrome.html` |
+| `partials/day_chrome.html` | Time pills, shape-bar scrubber, day tiles; also used as OOB refresh target |
 | `partials/results_region.html` | Wraps `session_list.html` + active chips strip |
 | `partials/filter_sheet.html` | Searchable Track + Room lists with faceted counts |
 | `partials/save_button.html` | "+ Attending" / "✓ Attending" toggle |
@@ -944,20 +1023,26 @@ This makes UI iteration ship instantly without users having to hard-refresh.
 | `partials/admin_user_list.html` | User table partial for HTMX search |
 | `partials/speakers_list.html` | Speakers list partial |
 
-### Static (app/static/, ~1,800 LOC + vendored htmx)
+### Static (app/static/, ~2,400 LOC + vendored htmx + images)
 | File | Role |
 |---|---|
-| `css/app.css` | Global tokens, topbar, bottom-nav, login chrome, generic cards, toasts |
+| `css/app.css` | Global tokens, topbar/about panel, bottom-nav, login chrome, generic cards, toasts |
 | `css/filters.css` | Filter chips, bottom sheet, day-chip calendar tiles, Attending button |
-| `css/agenda.css` | Day-block, day-chrome (sticky bottom), time-strip, shape-bar scrubber + lens, slot-band, compact card, day-tiles |
-| `js/app.js` | All UI behavior — clock, countdowns, toasts, sheet, typeahead, time-strip nav, scrubber, lens, slot observer |
+| `css/agenda.css` | Day-block, fixed day-chrome, time-strip, shape-bar scrubber + lens, slot-band, compact card, day-tiles |
+| `css/walk.css` | Walk preview layout, floor-plan stage, controls, stop list |
+| `js/app.js` | Shared UI behavior — clock, countdowns, toasts, sheet, typeahead, time-strip nav, scrubber, lens, slot/day observers |
+| `js/walk.js` | Walk preview playback and route rendering |
 | `js/htmx.min.js` | Vendored HTMX |
 | `icons/icon-192.svg`, `icons/icon-512.svg` | PWA icons |
+| `og/og-card.png` | 1200×630 social preview card |
+| `venue/level-1.webp`, `level-2.webp`, `level-3.webp` | Moscone West floor plans |
+| `venue/venue.json` | Venue metadata, floor image paths, room centroid map |
 
 ### Root
 | File | Role |
 |---|---|
 | `pyproject.toml` | Deps + setuptools package = `["app"]` |
+| `uv.lock` | Locked dependency graph for deploy reproducibility |
 | `README.md` | Public-facing project intro with screenshots |
 | `LICENSE` | MIT |
 | `.env.example` | Configuration template |
@@ -983,10 +1068,10 @@ If you're picking this up cold, read in this order:
 5. `app/queries.py` — the queries you'll edit most often
 6. `app/routers/browse.py` — the centerpiece route
 7. `app/templates/partials/session_list.html` — the centerpiece template
-8. `app/static/js/app.js` — the only meaningful JS file
+8. `app/static/js/app.js` — shared browser behavior
 9. `app/static/css/agenda.css` — the visual centerpiece
 
-Skip on first pass: `app/sync.py` (only needed when upstream data shape changes), `app/routers/admin.py` (only for user management features).
+Skip on first pass: `app/sync.py` (only needed when upstream data shape changes), `app/static/js/walk.js` (only for venue animation work), `app/routers/admin.py` (only for user management features).
 
 ## Appendix B — Glossary
 
@@ -996,11 +1081,12 @@ Skip on first pass: `app/sync.py` (only needed when upstream data shape changes)
 | **Primary** | Itinerary entry with `is_backup = 0`. The session you actually plan to attend. |
 | **Backup** | Itinerary entry with `is_backup = 1`. A "in case the primary falls through" pick. Counts for the slot's visual but doesn't trigger conflicts. |
 | **Conflict** | A slot with 2+ primaries — visually red, pulses in the pill row. |
-| **Day chrome** | The bottom-anchored sticky panel containing time pills, scrubber, and day tiles. One per day-block; only the current one is visible. |
+| **Day chrome** | The bottom-anchored fixed panel containing time pills, scrubber, and day tiles. One per day-block; only the current one is visible. |
 | **Shape bar** | The 24px-tall horizontal bar of proportional colored segments inside the day chrome — the drag scrubber. |
 | **Shape lens** | The floating tooltip that follows your finger during a scrub, showing time + state + count. |
+| **Walk preview** | Animated playback of primary itinerary stops across mapped Moscone West floor plans. |
 | **Natural key** | The stable identity for a session across syncs: `"{day}|{time}|{room}|{title}"` lowercased. |
 | **HTMX partial** | A response that's a fragment of HTML (not a full document), swapped into a target element by HTMX. Distinguished from full-page responses by the `HX-Request: true` header. |
 
 ---
-*Last reviewed: 2026-06-14. Generated from a deep code survey by Claude (Opus 4.7). If you've made structural changes, regenerate.*
+*Last reviewed: 2026-06-15. Current-snapshot update after code survey of changes since the original 2026-06-14 project understanding.*
