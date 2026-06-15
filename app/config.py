@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     RESEND_FROM: str = "WFSF <onboarding@resend.dev>"
 
-    ADMIN_EMAILS: str = "gopi.kori@gmail.com"
+    # Comma-separated emails granted admin role on first OTP verify. Set via .env.
+    ADMIN_EMAILS: str = ""
 
     OTP_TTL_MINUTES: int = 10
     OTP_MAX_PER_HOUR: int = 5
