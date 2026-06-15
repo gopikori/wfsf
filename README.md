@@ -101,10 +101,6 @@ Static assets ship with a SHA1-hashed query string (`?v=abc1234567`) computed on
 - Admin actions are audit-logged. You cannot disable/demote the last remaining active admin.
 - CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy applied via middleware.
 
-## Status
-
-Personal project, single conference. Not actively accepting contributions — the codebase is small and opinionated enough that forks are encouraged over PRs.
-
 ## License
 
 MIT — do whatever you want with it.
