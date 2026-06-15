@@ -11,7 +11,7 @@
   {% set _base = app_base_url() %}
   {% set _og_title = "Plan your AI Engineer World's Fair 2026 — WFSF" %}
   {% set _og_desc = 'Pick sessions, juggle backups, surface conflicts, and preview the walk between Moscone rooms — your whole conference, one screen.' %}
-  {% set _og_image = _base ~ '/static/og/og-card.png' %}
+  {% set _og_image = _base ~ '/static/og/og-card-v2.png' %}
   <meta name="description" content="{{ _og_desc }}" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="WFSF" />
@@ -44,7 +44,11 @@
       if (!window.turnstile) return;
       (root || document).querySelectorAll('.ts-widget:not([data-rendered])').forEach(function (el) {
         el.setAttribute('data-rendered', '1');
-        window.turnstile.render(el, { sitekey: el.getAttribute('data-sitekey') });
+        window.turnstile.render(el, {
+          sitekey: el.getAttribute('data-sitekey'),
+          size: el.getAttribute('data-size') || (window.matchMedia('(max-width: 359px)').matches ? 'compact' : 'flexible'),
+          theme: el.getAttribute('data-theme') || 'dark'
+        });
       });
     };
     window.onloadTurnstile = function () { window.renderTurnstile(document); };

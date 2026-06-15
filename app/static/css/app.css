@@ -558,12 +558,17 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* Auth */
 .page-login .topbar, .page-login .bottom-nav { display: none; }
+.page-login { padding-bottom: 0; }
+.page-login .page {
+  max-width: none; min-height: 100dvh; padding: 0;
+}
 .auth-shell {
-  display: grid; gap: 24px; padding: 32px 20px; max-width: 1100px; margin: 0 auto;
+  display: grid; gap: 24px; width: 100%; padding: clamp(12px, 4vw, 32px); max-width: 1100px; margin: 0 auto;
   grid-template-columns: 1fr; min-height: 100vh; align-content: center;
 }
 .auth-card {
-  background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 28px;
+  width: 100%; min-width: 0; max-width: 520px; justify-self: center;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: clamp(14px, 4vw, 28px);
   display: flex; flex-direction: column; gap: 14px;
   box-shadow: var(--shadow);
 }
@@ -578,7 +583,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .lede { color: var(--ink-dim); font-size: 15px; margin: 0 0 4px; }
 .auth-form { display: flex; flex-direction: column; gap: 14px; }
 .auth-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.ts-widget { min-height: 65px; max-width: 100%; overflow: hidden; }
+.ts-widget { width: 100%; min-height: 65px; max-width: 100%; overflow: hidden; }
 .auth-footnote { font-size: 12px; color: var(--ink-mute); margin: 8px 0 0; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-label { font-family: 'JetBrains Mono', monospace; text-transform: uppercase; font-size: 11px; letter-spacing: 0.12em; color: var(--ink-mute); }
@@ -591,17 +596,6 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .field-msg { font-size: 13px; margin: 0; }
 .field-msg.is-ok { color: var(--ok); }
 .field-msg.is-err { color: var(--danger); }
-.auth-side { display: none; }
-.grid-frame {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-  border: 1px solid var(--line); border-radius: 20px; padding: 14px;
-  background: linear-gradient(135deg, rgba(255,93,41,0.05), rgba(181,140,255,0.05));
-}
-.grid-frame .g {
-  background: rgba(255,255,255,0.04); border: 1px solid var(--line); border-radius: 10px;
-  padding: 18px 10px; text-align: center; font-family: 'Instrument Serif', serif; font-size: 22px;
-  color: var(--ink-dim);
-}
 
 /* Toast */
 .toasts { position: fixed; bottom: calc(var(--bottom-nav-h) + 16px); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 50; pointer-events: none; }
@@ -615,8 +609,9 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .session-card { padding: 18px; }
   .speakers-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .now-row { grid-template-columns: 1fr 1fr; }
-  .auth-shell { grid-template-columns: 1fr 1fr; }
-  .auth-side { display: block; }
+}
+@media (max-width: 359px) {
+  .ts-widget { min-height: 140px; max-width: 150px; align-self: center; }
 }
 @media (min-width: 980px) {
   .speakers-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }

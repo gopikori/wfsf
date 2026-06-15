@@ -1,5 +1,6 @@
 .agent
 .env
+deployment.md
 .venv
 .DS_Store
 .pytest_cache/
@@ -29,4 +30,3 @@ br.yml
 # Editor / OS
 .idea/
 .vscode/
-
