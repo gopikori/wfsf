@@ -30,6 +30,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        # Honored only over HTTPS (Render terminates TLS); browsers ignore it on plain HTTP.
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
         response.headers.setdefault(
             "Permissions-Policy",
             "camera=(), microphone=(), geolocation=()",
@@ -156,17 +160,21 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
+    # Caches ONLY same-origin /static/ assets (content-hashed → safe to cache forever).
+    # Authenticated HTML (/, /browse, /my-schedule, /day-of, /admin) is never cached so
+    # personal data can't be read from Cache Storage after logout or on a shared device.
     sw = (
-        "const CACHE='wfsf-v1';\n"
-        "const SHELL=['/', '/browse', '/my-schedule', '/static/css/app.css', '/static/js/app.js'];\n"
+        "const CACHE='wfsf-v2';\n"
+        "const SHELL=['/static/css/app.css', '/static/js/app.js'];\n"
         "self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL).catch(()=>{}))); self.skipWaiting(); });\n"
-        "self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });\n"
+        "self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });\n"
         "self.addEventListener('fetch', e => {\n"
         "  const req = e.request;\n"
         "  if (req.method !== 'GET') return;\n"
+        "  const url = new URL(req.url);\n"
+        "  if (url.origin !== location.origin || !url.pathname.startsWith('/static/')) return;\n"
         "  e.respondWith(\n"
-        "    fetch(req).then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy).catch(()=>{})); return res; })\n"
-        "      .catch(() => caches.match(req).then(m => m || caches.match('/browse')))\n"
+        "    caches.match(req).then(hit => hit || fetch(req).then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy).catch(()=>{})); return res; }))\n"
         "  );\n"
         "});\n"
     )

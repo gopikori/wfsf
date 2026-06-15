@@ -36,6 +36,13 @@ def _hash_code(code: str, email: str) -> str:
     return hmac.new(salt, f"{email.lower()}|{code}".encode(), hashlib.sha256).hexdigest()
 
 
+def _hash_token(token: str) -> str:
+    """Hash the session token for at-rest storage. The token is 256 bits of
+    secrets-grade entropy, so a plain SHA-256 (no salt) is sufficient: a leaked
+    DB row can't be reversed into a usable cookie."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 def normalize_email(email: str) -> str:
     return email.strip().lower()
 
@@ -141,7 +148,7 @@ def verify_otp(email: str, code: str, request: Request | None = None) -> tuple[b
         ip = (request.client.host if request and request.client else "")[:64]
         conn.execute(
             "INSERT INTO sessions(id, user_id, expires_at, user_agent, ip) VALUES(?, ?, ?, ?, ?)",
-            (token, user_row["id"], expires, ua, ip),
+            (_hash_token(token), user_row["id"], expires, ua, ip),
         )
 
         user = CurrentUser(
@@ -159,7 +166,7 @@ def resolve_session(token: str | None) -> CurrentUser | None:
             "SELECT s.user_id, s.expires_at, u.email, u.role, u.status "
             "FROM sessions s JOIN users u ON u.id = s.user_id "
             "WHERE s.id = ?",
-            (token,),
+            (_hash_token(token),),
         ).fetchone()
         if not row:
             return None
@@ -174,7 +181,7 @@ def invalidate_session(token: str | None) -> None:
     if not token:
         return
     with tx() as conn:
-        conn.execute("DELETE FROM sessions WHERE id = ?", (token,))
+        conn.execute("DELETE FROM sessions WHERE id = ?", (_hash_token(token),))
 
 
 def invalidate_user_sessions(user_id: int) -> None:

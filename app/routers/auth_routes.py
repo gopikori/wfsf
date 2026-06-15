@@ -48,7 +48,7 @@ async def login_verify(request: Request, email: str = Form(...), code: str = For
         token,
         max_age=60 * 60 * 24 * settings.SESSION_TTL_DAYS,
         httponly=True,
-        secure=False,
+        secure=settings.COOKIE_SECURE,
         samesite="lax",
         path="/",
     )

@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     SESSION_SECRET: str = "change-me-in-prod-please"
     SESSION_COOKIE_NAME: str = "wfsf_session"
     SESSION_TTL_DAYS: int = 30
+    # Marks the session cookie Secure so browsers only send it over HTTPS.
+    # Default True for prod (Render serves HTTPS); set false for plain-HTTP LAN dev.
+    COOKIE_SECURE: bool = True
 
     RESEND_API_KEY: str = ""
     RESEND_FROM: str = "WFSF <onboarding@resend.dev>"
@@ -40,7 +43,9 @@ class Settings(BaseSettings):
     SPEAKERS_URL: str = "https://www.ai.engineer/worldsfair/2026/speakers.json"
     MCP_URL: str = "https://www.ai.engineer/worldsfair/2026/mcp"
 
-    DEV_OTP_LOG: bool = True
+    # Logs OTP codes to stdout. Default False (prod-safe); enable in local dev
+    # when no RESEND_API_KEY is set so you can read the code from the console.
+    DEV_OTP_LOG: bool = False
 
     def admin_email_set(self) -> set[str]:
         return {e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip()}
