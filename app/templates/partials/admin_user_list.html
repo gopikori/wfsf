@@ -1,0 +1,31 @@
+<section id="user-list" class="card user-table">
+  <h2 class="section-title">Users</h2>
+  <table>
+    <thead>
+      <tr><th>Email</th><th>Role</th><th>Status</th><th>Registered</th><th>Last login</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td class="email">{{ u.email }}</td>
+        <td><span class="status {{ 'status-confirmed' if u.role == 'admin' else 'status-other' }}">{{ u.role }}</span></td>
+        <td><span class="status {{ 'status-confirmed' if u.status == 'active' else 'status-hold' }}">{{ u.status }}</span></td>
+        <td class="muted">{{ u.created_at }}</td>
+        <td class="muted">{{ u.last_login_at or '—' }}</td>
+        <td class="actions">
+          {% if u.status == 'active' %}
+          <button class="btn ghost sm" hx-post="/admin/users/{{ u.id }}/disable" hx-target="#page" hx-swap="innerHTML" hx-confirm="Disable {{ u.email }}? Their sessions will end.">Disable</button>
+          {% else %}
+          <button class="btn ghost sm" hx-post="/admin/users/{{ u.id }}/enable" hx-target="#page" hx-swap="innerHTML">Enable</button>
+          {% endif %}
+          {% if u.role != 'admin' %}
+          <button class="btn ghost sm" hx-post="/admin/users/{{ u.id }}/promote" hx-target="#page" hx-swap="innerHTML" hx-confirm="Promote {{ u.email }} to admin?">Promote</button>
+          {% else %}
+          <button class="btn ghost sm" hx-post="/admin/users/{{ u.id }}/demote" hx-target="#page" hx-swap="innerHTML" hx-confirm="Demote {{ u.email }} to user?">Demote</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>

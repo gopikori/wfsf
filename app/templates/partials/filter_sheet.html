@@ -1,0 +1,54 @@
+<div class="sheet-body" hx-get="/browse/facets" hx-trigger="open-sheet from:body, change from:#filters delay:150ms" hx-target="this" hx-swap="outerHTML" hx-include="#filters">
+  <header class="sheet-head">
+    <h2 id="sheet-title" class="sheet-title">Filters</h2>
+    <button type="button" class="sheet-close" data-close-sheet aria-label="Close filters">×</button>
+  </header>
+
+  <section class="sheet-section">
+    <div class="sheet-section-head">
+      <h3>Track <span class="muted">({{ facets.track|length }})</span></h3>
+      <label class="sheet-search">
+        <span class="vh">Search tracks</span>
+        <input type="search" placeholder="Filter tracks…" data-typeahead="track-list" />
+      </label>
+    </div>
+    <ul class="opt-list" id="track-list">
+      {% for t in facets.track %}
+      <li class="opt-row {{ 'is-selected' if t.selected else '' }}" data-label="{{ t.value|lower }}">
+        <label>
+          <input type="checkbox" form="filters" name="track" value="{{ t.value }}" {% if t.selected %}checked{% endif %} />
+          <span class="opt-dot" style="background: var(--c, #999)"></span>
+          <span class="opt-name">{{ t.value }}</span>
+          <span class="opt-count">{{ t.count }}</span>
+        </label>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="sheet-section">
+    <div class="sheet-section-head">
+      <h3>Room <span class="muted">({{ facets.room|length }})</span></h3>
+      <label class="sheet-search">
+        <span class="vh">Search rooms</span>
+        <input type="search" placeholder="Filter rooms…" data-typeahead="room-list" />
+      </label>
+    </div>
+    <ul class="opt-list" id="room-list">
+      {% for r in facets.room %}
+      <li class="opt-row {{ 'is-selected' if r.selected else '' }}" data-label="{{ r.value|lower }}">
+        <label>
+          <input type="checkbox" form="filters" name="room" value="{{ r.value }}" {% if r.selected %}checked{% endif %} />
+          <span class="opt-name">{{ r.value }}</span>
+          <span class="opt-count">{{ r.count }}</span>
+        </label>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <footer class="sheet-foot">
+    <a class="btn ghost" href="/browse">Clear all</a>
+    <button type="button" class="btn primary" data-close-sheet>Done</button>
+  </footer>
+</div>

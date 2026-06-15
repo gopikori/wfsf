@@ -1,0 +1,53 @@
+{% if step == 'email' %}
+<form class="auth-form"
+      hx-post="/login/request"
+      hx-target="#login-form-wrap"
+      hx-swap="innerHTML"
+      hx-disabled-elt="find button">
+  <label class="field">
+    <span class="field-label">Your email</span>
+    <input type="email" name="email" required autocomplete="email" inputmode="email"
+           placeholder="you@company.com" value="{{ email or '' }}" autofocus />
+  </label>
+  {% if message %}
+  <p class="field-msg {{ 'is-ok' if ok else 'is-err' }}">{{ message }}</p>
+  {% endif %}
+  <button type="submit" class="btn primary block">
+    Send me a code
+    <span class="htmx-indicator dot-pulse" aria-hidden="true"></span>
+  </button>
+</form>
+{% else %}
+<form class="auth-form"
+      hx-post="/login/verify"
+      hx-target="#login-form-wrap"
+      hx-swap="innerHTML"
+      hx-disabled-elt="find button">
+  <input type="hidden" name="email" value="{{ email }}" />
+  <label class="field">
+    <span class="field-label">Code sent to <strong>{{ email }}</strong></span>
+    <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+           autocomplete="one-time-code" placeholder="6-digit code" required autofocus />
+  </label>
+  {% if message %}
+  <p class="field-msg {{ 'is-ok' if ok else 'is-err' }}">{{ message }}</p>
+  {% endif %}
+  <div class="auth-actions">
+    <button type="submit" class="btn primary">
+      Verify & sign in
+      <span class="htmx-indicator dot-pulse" aria-hidden="true"></span>
+    </button>
+    <button type="button" class="btn ghost"
+            hx-post="/login/request"
+            hx-vals='{"email": "{{ email }}"}'
+            hx-target="#login-form-wrap"
+            hx-swap="innerHTML">
+      Resend
+    </button>
+  </div>
+  <button type="button" class="btn linklike"
+          hx-get="/login" hx-target="body" hx-swap="outerHTML">
+    Use a different email
+  </button>
+</form>
+{% endif %}

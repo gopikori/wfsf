@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Day-Of · WFSF{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div class="ph-left">
+    <p class="eyebrow">{% if in_event %}You're at the event{% else %}Pre-event mode{% endif %}</p>
+    <h1 class="display sm">{% if day_label %}{{ day_label }}{% else %}Day-Of Companion{% endif %}</h1>
+  </div>
+  <div class="ph-meta">
+    <span class="meta-pill" id="liveclock">{{ now.strftime('%a, %b %-d · %-I:%M %p') }}</span>
+  </div>
+</section>
+
+{% if not in_event %}
+<aside class="alert-band">
+  <h3>Event runs Jun 28 — Jul 2, 2026</h3>
+  <p>On event days this view auto-focuses to <em>now</em> and <em>next</em>. Until then, plan in <a href="/browse">Browse</a> and review in <a href="/my-schedule">My Schedule</a>.</p>
+</aside>
+{% endif %}
+
+{% if changes %}
+<aside class="alert-band soft">
+  <h3>Live changes to your saved picks</h3>
+  <ul>
+    {% for c in changes[:5] %}
+    <li>
+      <a href="/session/{{ c.session_id }}"><strong>{{ c.title }}</strong> —
+        {% if c.change_type == 'cancelled' %}<em>cancelled</em>
+        {% elif c.field %} {{ c.field }} {{ c.old_value }} → {{ c.new_value }}
+        {% else %}updated{% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</aside>
+{% endif %}
+
+<section class="now-row">
+  <article class="now-card">
+    <p class="eyebrow">Happening now</p>
+    {% if categories.now_items %}
+      {% for s in categories.now_items %}
+      <a class="now-link" href="/session/{{ s.id }}" style="--track: {{ s.track|track_color }}">
+        <h2>{{ s.title }}</h2>
+        <p class="meta">
+          {% if s.room %}<strong>{{ s.room }}</strong>{% if s.floor %} · <span>Floor {{ s.floor }}</span>{% endif %}{% endif %}
+          {% if s.track %}<span class="tag track"><span class="dot"></span>{{ s.track }}</span>{% endif %}
+        </p>
+        <p class="muted">{{ s.start_time|display_time }} – {{ s.end_time|display_time }}</p>
+      </a>
+      {% endfor %}
+    {% else %}
+      <p class="muted">Nothing on your schedule right now.</p>
+      {% if suggestions %}
+      <p class="eyebrow">Gap guidance — happening soon</p>
+      <ul class="suggest-list">
+        {% for s in suggestions %}
+        <li style="--track: {{ s.track|track_color }}">
+          <a href="/session/{{ s.id }}">
+            <strong>{{ s.title }}</strong>
+            <span class="meta">{{ s.start_time|display_time }} · {{ s.room }}{% if s.floor %} · Fl {{ s.floor }}{% endif %}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    {% endif %}
+  </article>
+
+  <article class="next-card">
+    <p class="eyebrow">Up next</p>
+    {% if categories.next_session %}
+      {% set s = categories.next_session %}
+      <a class="next-link" href="/session/{{ s.id }}" style="--track: {{ s.track|track_color }}">
+        <h2>{{ s.title }}</h2>
+        <p class="meta">
+          {% if s.room %}<strong>{{ s.room }}</strong>{% if s.floor %} · <span>Floor {{ s.floor }}</span>{% endif %}{% endif %}
+          {% if s.track %}<span class="tag track"><span class="dot"></span>{{ s.track }}</span>{% endif %}
+        </p>
+        <p class="muted">{{ s.start_time|display_time }}{% if s.end_time %} – {{ s.end_time|display_time }}{% endif %}</p>
+        <p class="countdown" data-start="{{ s._start.isoformat() }}">Starts soon</p>
+      </a>
+    {% else %}
+      <p class="muted">No more saved sessions for today.</p>
+    {% endif %}
+  </article>
+</section>
+
+{% if categories.upcoming %}
+<section class="upcoming-list">
+  <h2 class="section-title">Later today</h2>
+  <ul class="mini-list">
+    {% for s in categories.upcoming[1:] %}
+    <li style="--track: {{ s.track|track_color }}">
+      <a href="/session/{{ s.id }}">
+        <span class="t">{{ s.start_time|display_time }}</span>
+        <span class="b">
+          <strong>{{ s.title }}</strong>
+          <em>{{ s.room or '' }}{% if s.floor %} · Fl {{ s.floor }}{% endif %}</em>
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if today_total == 0 %}
+<div class="empty">
+  <p class="empty-eyebrow">Nothing saved for today</p>
+  <a class="btn primary" href="/browse">Find sessions</a>
+</div>
+{% endif %}
+{% endblock %}

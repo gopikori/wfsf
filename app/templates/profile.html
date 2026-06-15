@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Profile · WFSF{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div class="ph-left">
+    <p class="eyebrow">{{ user.email }}</p>
+    <h1 class="display sm">Profile</h1>
+  </div>
+</section>
+<form class="card profile-form" method="post" action="/profile">
+  <section class="form-block">
+    <h2 class="section-title">Interest tracks</h2>
+    <p class="muted">We use these to suggest sessions when there's a gap on your day-of view.</p>
+    <div class="chips-row">
+      {% for t in facets.tracks %}
+      <label class="chip selectable" style="--c: {{ t|track_color }}">
+        <input type="checkbox" name="interest" value="{{ t }}" {% if t in prefs.interests %}checked{% endif %} />
+        <span><span class="dot" style="background: var(--c)"></span>{{ t }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="form-block">
+    <h2 class="section-title">Reminders</h2>
+    <label class="toggle">
+      <input type="checkbox" name="reminders" {% if prefs.reminders %}checked{% endif %} />
+      <span>Notify me ~15 min before saved sessions (browser notifications, when this tab is open)</span>
+    </label>
+  </section>
+
+  <div class="form-actions">
+    <button type="submit" class="btn primary">Save preferences</button>
+    {% if saved %}<span class="field-msg is-ok">Saved.</span>{% endif %}
+  </div>
+</form>
+{% if user.is_admin %}
+<p class="muted"><a href="/admin">→ Admin console</a></p>
+{% endif %}
+{% endblock %}

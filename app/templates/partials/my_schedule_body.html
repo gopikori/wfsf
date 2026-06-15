@@ -1,0 +1,88 @@
+<div id="my-schedule-body">
+{% if changes %}
+<aside class="alert-band">
+  <h3>Heads up — changes to your saved sessions</h3>
+  <ul>
+    {% for c in changes[:6] %}
+    <li>
+      <a href="/session/{{ c.session_id }}">
+        <strong>{{ c.title }}</strong>
+        {% if c.change_type == 'cancelled' %}
+          <em>cancelled</em>
+        {% elif c.field == 'room' %}
+          moved room: {{ c.old_value }} → {{ c.new_value }}
+        {% elif c.field == 'time_label' %}
+          retimed: {{ c.old_value }} → {{ c.new_value }}
+        {% elif c.field == 'status' %}
+          status: {{ c.old_value }} → {{ c.new_value }}
+        {% else %}
+          updated ({{ c.field }})
+        {% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</aside>
+{% endif %}
+{% if not days %}
+  <div class="empty">
+    <p class="empty-eyebrow">Empty itinerary</p>
+    <h2>Time to fill the days.</h2>
+    <p>Open Browse and tap ＋ Attending on any session.</p>
+    <a class="btn primary" href="/browse">Go to Browse</a>
+  </div>
+{% else %}
+  {% for d in days %}
+  <section class="day-block">
+    <header class="day-band">
+      <span class="day-num">{{ d.day_index + 1 }}</span>
+      <span class="day-name">{{ d.label }}</span>
+      <span class="day-iso">{{ d.short }}</span>
+    </header>
+    <ol class="timeline">
+      {% for s in d.sessions %}
+      <li class="t-item {{ 'is-backup' if s.is_backup else '' }} {{ 'has-conflict' if s.conflicts_with else '' }}"
+          style="--track: {{ s.track|track_color }}">
+        <div class="t-rail">
+          <span class="t-time">{{ s.start_time|display_time }}</span>
+          {% if s.end_time %}<span class="t-time-end">→ {{ s.end_time|display_time }}</span>{% endif %}
+        </div>
+        <article class="t-card">
+          <header class="t-head">
+            <h3><a href="/session/{{ s.id }}">{{ s.title }}</a></h3>
+            <span class="status {{ s.status|status_class }}">{{ s.status or '—' }}</span>
+          </header>
+          <p class="t-meta">
+            {% if s.track %}<span class="tag track"><span class="dot"></span>{{ s.track }}</span>{% endif %}
+            {% if s.room %}<span class="tag">{{ s.room }}{% if s.floor %} · Floor {{ s.floor }}{% endif %}</span>{% endif %}
+            {% if s.is_backup %}<span class="tag soft">↻ Backup</span>{% endif %}
+          </p>
+          {% if s.travel_warn %}
+          <p class="warn travel">↗ {{ s.travel_warn }}</p>
+          {% endif %}
+          {% if s.conflicts_with %}
+          <p class="warn conflict">⚠ overlaps {{ s.conflicts_with|length }} other session(s) you're attending — mark one as Backup or drop it.</p>
+          {% endif %}
+          <footer class="t-foot">
+            <button class="btn ghost sm"
+                    hx-post="/my-schedule/{{ s.id }}/backup"
+                    hx-target="#my-schedule-body"
+                    hx-swap="outerHTML">
+              {% if s.is_backup %}↑ Make Attending{% else %}↻ Mark as Backup{% endif %}
+            </button>
+            <button class="btn danger sm"
+                    hx-post="/my-schedule/{{ s.id }}/remove"
+                    hx-target="#my-schedule-body"
+                    hx-swap="outerHTML"
+                    hx-confirm="Remove this session from your schedule?">
+              Remove
+            </button>
+          </footer>
+        </article>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endfor %}
+{% endif %}
+</div>

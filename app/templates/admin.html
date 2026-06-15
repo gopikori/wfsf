@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Admin · WFSF{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div class="ph-left">
+    <p class="eyebrow">Console</p>
+    <h1 class="display sm">Admin</h1>
+  </div>
+  <div class="ph-meta">
+    <span class="meta-pill"><strong>{{ stats.total }}</strong> total</span>
+    <span class="meta-pill"><strong>{{ stats.active }}</strong> active</span>
+    <span class="meta-pill"><strong>{{ stats.admins }}</strong> admins</span>
+  </div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">Invite or upgrade by email</h2>
+  <form method="post" action="/admin/users/invite" class="row-form">
+    <label class="field grow">
+      <span class="field-label">Email</span>
+      <input type="email" name="email" required placeholder="someone@team.com" />
+    </label>
+    <label class="field">
+      <span class="field-label">Role</span>
+      <select name="role">
+        <option value="user">user</option>
+        <option value="admin">admin</option>
+      </select>
+    </label>
+    <button class="btn primary" type="submit">Add / update</button>
+  </form>
+</section>
+
+<form class="filters" hx-get="/admin" hx-trigger="input from:input[type=search] delay:300ms" hx-target="#user-list" hx-swap="outerHTML" hx-push-url="true">
+  <div class="filter-row search-row">
+    <label class="search">
+      <span class="vh">Search</span>
+      <input type="search" name="q" value="{{ q }}" placeholder="Search by email…" />
+    </label>
+  </div>
+</form>
+
+{% include "partials/admin_user_list.html" %}
+
+<section class="card audit">
+  <h2 class="section-title">Audit log (latest 50)</h2>
+  <ol class="audit-list">
+    {% for a in audit %}
+    <li>
+      <span class="muted">{{ a.created_at }}</span>
+      <strong>{{ a.actor_email }}</strong>
+      <em>{{ a.action }}</em>
+      {% if a.target_email %}→ <span>{{ a.target_email }}</span>{% endif %}
+      {% if a.detail %}<span class="muted">— {{ a.detail }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endblock %}

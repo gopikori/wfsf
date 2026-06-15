@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}My Schedule · WFSF{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div class="ph-left">
+    <p class="eyebrow">Your itinerary</p>
+    <h1 class="display sm">My Schedule</h1>
+  </div>
+  <div class="ph-meta">
+    <span class="meta-pill"><strong>{{ total }}</strong> picked</span>
+  </div>
+</section>
+<div id="my-schedule-body">
+  {% include "partials/my_schedule_body.html" %}
+</div>
+{% endblock %}

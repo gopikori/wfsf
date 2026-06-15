@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Sign in · WFSF{% endblock %}
+{% block body_class %}page-login{% endblock %}
+{% block content %}
+<section class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-mark">
+      <span class="mark-glyph">/W</span>
+      <span class="mark-text">
+        <strong>WFSF</strong>
+        <em>AI Engineer · World's Fair 2026</em>
+      </span>
+    </div>
+    <h1 class="display">Build the four days<br/>you actually want.</h1>
+    <p class="lede">554 sessions · 9 tracks · 4 days. Sign in with email — we'll send you a one-time code.</p>
+    <div id="login-form-wrap">
+      {% include "partials/login_form.html" %}
+    </div>
+    <p class="auth-footnote">No passwords. Codes expire in 10 min. You stay signed in for the event.</p>
+  </div>
+  <aside class="auth-side" aria-hidden="true">
+    <div class="grid-frame">
+      <span class="g g1">Agents</span>
+      <span class="g g2">Evals</span>
+      <span class="g g3">RAG</span>
+      <span class="g g4">Voice</span>
+      <span class="g g5">Vision</span>
+      <span class="g g6">Inference</span>
+      <span class="g g7">Robotics</span>
+      <span class="g g8">Security</span>
+      <span class="g g9">Memory</span>
+    </div>
+  </aside>
+</section>
+{% endblock %}

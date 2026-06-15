@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Speakers · WFSF{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div class="ph-left">
+    <p class="eyebrow">Who's speaking</p>
+    <h1 class="display sm">Speakers</h1>
+  </div>
+  <div class="ph-meta">
+    <span class="meta-pill"><strong>{{ total }}</strong> people</span>
+  </div>
+</section>
+<form class="filters" hx-get="/speakers" hx-trigger="input from:input[type=search] delay:300ms" hx-target="#speakers-list" hx-swap="outerHTML" hx-push-url="true">
+  <div class="filter-row search-row">
+    <label class="search">
+      <span class="vh">Search</span>
+      <input type="search" name="q" value="{{ q }}" placeholder="Search by name, company, role…" />
+    </label>
+  </div>
+</form>
+{% include "partials/speakers_list.html" %}
+{% endblock %}

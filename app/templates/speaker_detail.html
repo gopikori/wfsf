@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ speaker.name }} · WFSF{% endblock %}
+{% block content %}
+<article class="speaker-detail">
+  <a class="back-link" href="/speakers">← Back to speakers</a>
+  <header class="sp-head">
+    <h1>{{ speaker.name }}</h1>
+    <p class="muted">
+      {% if speaker.role %}{{ speaker.role }}{% endif %}
+      {% if speaker.role and speaker.company %} · {% endif %}
+      {% if speaker.company %}{{ speaker.company }}{% endif %}
+    </p>
+    {% if speaker.twitter %}
+    {% set tw = speaker.twitter|twitter_handle %}
+    <p><a class="link-pill" href="https://twitter.com/{{ tw }}" target="_blank" rel="noopener">@{{ tw }}</a></p>
+    {% endif %}
+  </header>
+  <section>
+    <h2 class="section-title">Their talks ({{ speaker.sessions|length }})</h2>
+    <div class="session-list compact">
+      {% for s in speaker.sessions %}
+      <article class="card session-card" style="--track: {{ s.track|track_color }}">
+        <a class="card-link" href="/session/{{ s.id }}">
+          <header class="sc-head">
+            <span class="time">{{ s.day_short }} · {{ s.start_time|display_time }}</span>
+            <span class="status {{ s.status|status_class }}">{{ s.status or '—' }}</span>
+          </header>
+          <h3 class="sc-title">{{ s.title }}</h3>
+          <p class="sc-meta">
+            {% if s.track %}<span class="tag track"><span class="dot"></span>{{ s.track }}</span>{% endif %}
+            {% if s.room %}<span class="tag">{{ s.room }}{% if s.floor %} · Floor {{ s.floor }}{% endif %}</span>{% endif %}
+          </p>
+        </a>
+        <div class="sc-actions">{% with session=s %}{% include "partials/save_button.html" %}{% endwith %}</div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+</article>
+{% endblock %}

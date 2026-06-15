@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" data-theme="wfsf">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{% block title %}WFSF — AI Engineer World's Fair 2026{% endblock %}</title>
+  <meta name="theme-color" content="#0b0b10" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="{{ static_v('icons/icon-192.svg') }}" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&family=Instrument+Serif&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ static_v('css/app.css') }}" />
+  <link rel="stylesheet" href="{{ static_v('css/filters.css') }}" />
+  <link rel="stylesheet" href="{{ static_v('css/agenda.css') }}" />
+  <script src="{{ static_v('js/htmx.min.js') }}" defer></script>
+  <script src="{{ static_v('js/app.js') }}" defer></script>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <div class="bg-aura" aria-hidden="true"></div>
+  {% if user %}
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="WFSF home">
+      <span class="brand-mark">WFSF</span>
+      <span class="brand-sub">AI Engineer · World's Fair 2026</span>
+    </a>
+    <div class="topbar-spacer"></div>
+    <nav class="top-nav" aria-label="Account">
+      <a class="chip {{ 'is-active' if request.url.path.startswith('/profile') else '' }}" href="/profile">{{ user.email }}</a>
+      <form method="post" action="/logout" class="inline">
+        <button class="chip ghost" type="submit" aria-label="Sign out">Sign out</button>
+      </form>
+    </nav>
+  </header>
+  {% endif %}
+
+  <main class="page" id="page" hx-boost="false">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if user %}
+  <nav class="bottom-nav" aria-label="Primary">
+    <a class="nav-item {{ 'is-active' if request.url.path.startswith('/browse') or request.url.path.startswith('/session') else '' }}" href="/browse">
+      <span class="nav-icon" aria-hidden="true">◆</span>
+      <span class="nav-label">Browse</span>
+    </a>
+    <a class="nav-item {{ 'is-active' if request.url.path.startswith('/my-schedule') else '' }}" href="/my-schedule">
+      <span class="nav-icon" aria-hidden="true">★</span>
+      <span class="nav-label">My&nbsp;Schedule</span>
+    </a>
+    <a class="nav-item {{ 'is-active' if request.url.path.startswith('/day-of') else '' }}" href="/day-of">
+      <span class="nav-icon" aria-hidden="true">●</span>
+      <span class="nav-label">Day-Of</span>
+    </a>
+    <a class="nav-item {{ 'is-active' if request.url.path.startswith('/speakers') else '' }}" href="/speakers">
+      <span class="nav-icon" aria-hidden="true">▲</span>
+      <span class="nav-label">Speakers</span>
+    </a>
+    {% if user.is_admin %}
+    <a class="nav-item {{ 'is-active' if request.url.path.startswith('/admin') else '' }}" href="/admin">
+      <span class="nav-icon" aria-hidden="true">⌘</span>
+      <span class="nav-label">Admin</span>
+    </a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  <div id="toasts" class="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

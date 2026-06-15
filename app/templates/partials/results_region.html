@@ -1,0 +1,15 @@
+<div id="results-region">
+  {% if active_chips %}
+  <div class="active-chips" aria-label="Active filters">
+    {% for c in active_chips %}
+      <button type="button" class="active-chip" data-remove-filter="{{ c.dim }}" data-remove-value="{{ c.value }}">
+        <span>{{ c.label }}</span>
+        <span class="x" aria-hidden="true">×</span>
+        <span class="vh">Remove filter {{ c.label }}</span>
+      </button>
+    {% endfor %}
+    <a class="active-chip clear-all" href="/browse">Clear all</a>
+  </div>
+  {% endif %}
+  {% include "partials/session_list.html" %}
+</div>

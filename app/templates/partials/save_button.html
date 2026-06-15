@@ -1,0 +1,20 @@
+{% set saved = session.id in saved_ids %}
+<form class="save-form" hx-target="this" hx-swap="outerHTML">
+  {% if saved %}
+  <button type="button"
+          class="btn attending"
+          hx-post="/session/{{ session.id }}/unsave"
+          aria-pressed="true"
+          aria-label="Stop attending {{ session.title }}">
+    <span aria-hidden="true">✓</span> Attending
+  </button>
+  {% else %}
+  <button type="button"
+          class="btn attend"
+          hx-post="/session/{{ session.id }}/save"
+          aria-pressed="false"
+          aria-label="Mark {{ session.title }} as attending">
+    <span aria-hidden="true">＋</span> Attending
+  </button>
+  {% endif %}
+</form>

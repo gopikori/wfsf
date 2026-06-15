@@ -1,0 +1,22 @@
+<section id="speakers-list" class="speakers-grid">
+  {% if not speakers %}
+    <div class="empty">
+      <p class="empty-eyebrow">No matches</p>
+      <p>Try a different search.</p>
+    </div>
+  {% else %}
+    {% for sp in speakers %}
+    <a class="spk-card" href="/speakers/{{ sp.name }}">
+      <p class="spk-name">{{ sp.name }}</p>
+      <p class="spk-meta">
+        {% if sp.role %}<span>{{ sp.role }}</span>{% endif %}
+        {% if sp.company %}<span class="muted"> @ {{ sp.company }}</span>{% endif %}
+      </p>
+      <p class="spk-foot">
+        <span class="meta-pill">{{ sp.sessions_count }} talk{{ '' if sp.sessions_count == 1 else 's' }}</span>
+        {% if sp.twitter %}<span class="muted twitter-handle">@{{ sp.twitter|twitter_handle }}</span>{% endif %}
+      </p>
+    </a>
+    {% endfor %}
+  {% endif %}
+</section>

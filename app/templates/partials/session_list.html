@@ -1,0 +1,119 @@
+<section id="session-list" class="session-list slotted" aria-live="polite" data-total="{{ total_count }}">
+  {% if not sessions %}
+    <div class="empty">
+      <p class="empty-eyebrow">No matches</p>
+      <h2>Loosen the filters?</h2>
+      <p>Clear a chip or two and the list will fill back up.</p>
+      <a class="btn primary" href="/browse">Clear all filters</a>
+    </div>
+  {% else %}
+    {% set _glyphs = {'primary': '✓', 'backup': '↻', 'conflict': '⚠', 'past': '·', 'empty': ''} %}
+    {% for d in days_grouped %}
+    <section class="day-block" data-day-index="{{ d.day_index }}" data-day-iso="{{ d.date_iso }}">
+      {% for slot in d.slots %}
+      <section class="slot-block" id="{{ slot.anchor }}">
+        <header class="slot-band">
+          <span class="slot-time">{{ slot.time|display_time if slot.time else 'TBA' }}</span>
+          <span class="slot-count">{{ slot.count }} session{{ '' if slot.count == 1 else 's' }}</span>
+        </header>
+        <ul class="slot-list">
+          {% for s in slot.sessions %}
+          <li class="slot-row">
+            <article class="card session-card compact" style="--track: {{ s.track|track_color }}">
+              <a class="card-link" href="/session/{{ s.id }}" aria-label="Open session: {{ s.title }}">
+                <h3 class="sc-title">{{ s.title }}</h3>
+                <p class="sc-meta">
+                  {% if s.track %}<span class="tag track"><span class="dot"></span>{{ s.track }}</span>{% endif %}
+                  {% if s.room %}<span class="tag">{{ s.room }}{% if s.floor %} · F{{ s.floor }}{% endif %}</span>{% endif %}
+                  {% if s.type %}<span class="tag type">{{ s.type }}</span>{% endif %}
+                  {% if s.status and s.status|lower != 'scheduled' %}<span class="status {{ s.status|status_class }}">{{ s.status }}</span>{% endif %}
+                </p>
+                {% if s.speakers %}
+                <p class="sc-speakers">{{ s.speakers|join(' · ') }}</p>
+                {% endif %}
+              </a>
+              <div class="sc-actions">
+                {% with session=s %}{% include "partials/save_button.html" %}{% endwith %}
+                <p class="sc-time" aria-label="Session time">
+                  <span class="sc-time-start">{{ s.start_time|display_time if s.start_time else 'TBA' }}</span>
+                  {% if s.end_time %}
+                  <span class="sc-time-sep" aria-hidden="true">→</span>
+                  <span class="sc-time-end">{{ s.end_time|display_time }}</span>
+                  {% endif %}
+                </p>
+              </div>
+            </article>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+
+      {# Thumb-zone chrome: stacked top→bottom = time-pills, scrubber, date #}
+      <aside class="day-chrome" aria-label="Day controls">
+        {% if d.slots|length > 1 %}
+        <nav class="time-strip" aria-label="Jump to time on {{ d.day_short }}">
+          <ol>
+            {% for slot in d.slots %}
+            <li>
+              <a href="#{{ slot.anchor }}" class="time-pill state-{{ slot.state }}" data-slot-anchor="{{ slot.anchor }}" data-time="{{ slot.time or '' }}" data-state="{{ slot.state }}" aria-label="{{ slot.time|display_time if slot.time else 'TBA' }} — {{ slot.count }} session{{ '' if slot.count == 1 else 's' }} — {{ slot.state }}">
+                <span class="tp-head">
+                  {% if _glyphs[slot.state] %}<span class="tp-glyph" aria-hidden="true">{{ _glyphs[slot.state] }}</span>{% endif %}
+                  <span class="tp-time">{{ slot.time|display_time if slot.time else 'TBA' }}</span>
+                </span>
+                <span class="tp-count">
+                  {% if slot.primary_count or slot.backup_count %}
+                    <strong>{{ slot.primary_count + slot.backup_count }}</strong>/{{ slot.count }}
+                  {% else %}
+                    {{ slot.count }}
+                  {% endif %}
+                </span>
+              </a>
+            </li>
+            {% endfor %}
+          </ol>
+        </nav>
+        <div class="shape-bar" aria-label="Drag to scrub the day timeline" role="slider">
+          <span class="shape-grip" aria-hidden="true"></span>
+          <div class="shape-track">
+            {% for slot in d.slots %}
+            <a href="#{{ slot.anchor }}"
+               class="shape-seg state-{{ slot.state }}"
+               data-slot-anchor="{{ slot.anchor }}"
+               data-time="{{ slot.time or '' }}"
+               data-display-time="{{ slot.time|display_time if slot.time else 'TBA' }}"
+               data-state="{{ slot.state }}"
+               data-count="{{ slot.count }}"
+               data-picked="{{ slot.primary_count + slot.backup_count }}"
+               style="flex-basis: {{ slot.span_pct }}%;"
+               title="{{ slot.time|display_time if slot.time else 'TBA' }} · {{ slot.state }}"></a>
+            {% endfor %}
+          </div>
+          <span class="shape-hint" aria-hidden="true">scrub day</span>
+        </div>
+        {% endif %}
+        <nav class="day-tiles" aria-label="Switch day">
+          {% for d2 in facets.day %}
+            {% set _t = (d2.short or '').split(' ') %}
+            <a class="day-tile{% if d2.index == d.day_index %} is-current{% endif %}{% if d2.selected %} is-filtered{% endif %}{% if not d2.count %} is-empty{% endif %}"
+               href="?day={{ d2.index }}"
+               hx-get="/browse"
+               {% if d2.selected %}hx-vals='{}'{% else %}hx-vals='{"day": "{{ d2.index }}"}'{% endif %}
+               hx-include="#filters input:not([name='day'])"
+               hx-target="#results-region"
+               hx-swap="outerHTML scroll:window:top"
+               hx-push-url="true"
+               data-day-index="{{ d2.index }}"
+               aria-label="{{ d2.short }} — {{ d2.count }} session{{ '' if d2.count == 1 else 's' }}{% if d2.selected %} — currently filtered{% endif %}"
+               title="{{ d2.short }} · {{ d2.count }} sessions">
+              <span class="dt-dow">{{ _t[0] if _t else '' }}</span>
+              <span class="dt-num">{{ _t[-1] if _t else '' }}</span>
+              <span class="dt-count">{{ d2.count }}</span>
+            </a>
+          {% endfor %}
+        </nav>
+      </aside>
+    </section>
+    {% endfor %}
+  {% endif %}
+</section>

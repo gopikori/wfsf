@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ session.title }} · WFSF{% endblock %}
+{% block content %}
+<article class="session-detail" style="--track: {{ session.track|track_color }}">
+  <a class="back-link" href="javascript:history.back()">← Back</a>
+  <header class="sd-head">
+    <p class="eyebrow"><span class="dot"></span>{{ session.track or 'Untracked' }} · {{ session.type or 'session' }}</p>
+    <h1>{{ session.title }}</h1>
+    <p class="sd-when">
+      <strong>{{ session.day_short }}</strong>
+      · {{ session.start_time|display_time }}{% if session.end_time %} – {{ session.end_time|display_time }}{% endif %}
+      {% if session.room %} · {{ session.room }}{% if session.floor %} · Floor {{ session.floor }}{% endif %}{% endif %}
+    </p>
+    <p class="sd-badges">
+      <span class="status {{ session.status|status_class }}">{{ session.status or '—' }}</span>
+      {% if session.deleted %}<span class="status status-cancelled">cancelled</span>{% endif %}
+    </p>
+  </header>
+  {% if session.description %}
+  <section class="sd-body">
+    {{ session.description }}
+  </section>
+  {% else %}
+  <p class="sd-body muted">No description provided yet — check back as the schedule firms up.</p>
+  {% endif %}
+  {% if session.speakers %}
+  <section class="sd-speakers">
+    <h2>Speakers</h2>
+    <ul class="speaker-pills">
+      {% for sp in session.speakers %}
+      <li><a class="speaker-pill" href="/speakers/{{ sp }}">{{ sp }}</a></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</article>
+<div class="sd-stickybar">
+  {% include "partials/save_button.html" with context %}
+</div>
+{% endblock %}

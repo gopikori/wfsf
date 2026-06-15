@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff5d29"/>
+      <stop offset="100%" stop-color="#ffb800"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="36" fill="#0b0b10"/>
+  <text x="50%" y="58%" text-anchor="middle" font-family="-apple-system, Inter, sans-serif" font-weight="800" font-size="64" fill="url(#g)">WFSF</text>
+  <text x="50%" y="78%" text-anchor="middle" font-family="-apple-system, Inter, sans-serif" font-weight="500" font-size="14" fill="#b8b2a8" letter-spacing="2">AI ENGINEER · 2026</text>
+</svg>

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Browse · WFSF{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div class="ph-left">
+    <p class="eyebrow">All sessions</p>
+    <h1 class="display sm">Browse the program</h1>
+  </div>
+  <div class="ph-meta">
+    <span class="meta-pill"><strong id="result-count">{{ total_count }}</strong> matching</span>
+  </div>
+</section>
+
+<form id="filters" class="filters"
+      hx-get="/browse"
+      hx-trigger="change from:#filters delay:50ms, change from:#filter-sheet delay:50ms, input from:#filters input[type=search] delay:300ms"
+      hx-target="#results-region"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-indicator="#filters-spinner">
+
+  <div class="filter-row search-row">
+    <label class="search">
+      <span class="vh">Search</span>
+      <input type="search" name="q" value="{{ active.q }}" placeholder="Search title, speaker, description…" />
+    </label>
+    <button type="button" class="btn ghost filter-trigger" data-open-sheet="filter-sheet">
+      <span aria-hidden="true">≡</span> Filters
+      {% if active_count %}<span class="filter-pill">{{ active_count }}</span>{% endif %}
+    </button>
+    <span id="filters-spinner" class="htmx-indicator dot-pulse" aria-hidden="true"></span>
+  </div>
+
+  {# Day selection moved into the bottom-sticky day chrome — see partials/session_list.html #}
+  {# We still need to carry the currently-active day value(s) so the form submits them. #}
+  <div class="hidden-filter-state" hidden aria-hidden="true">
+    {% for v in active.day %}<input type="checkbox" name="day" value="{{ v }}" checked/>{% endfor %}
+  </div>
+
+  <div class="filter-row chips-row" role="group" aria-label="Type">
+    {% for t in facets.type %}
+      <label class="chip selectable small {{ 'is-empty' if not t.count else '' }}">
+        <input type="checkbox" name="type" value="{{ t.value }}" {% if t.selected %}checked{% endif %} {% if not t.count and not t.selected %}disabled{% endif %}/>
+        <span>{{ t.value }} <em class="chip-count">{{ t.count }}</em></span>
+      </label>
+    {% endfor %}
+  </div>
+
+  {# Track + Room chips are NOT in the inline form — they live in the sheet.
+     We still need their checked values inside the form so submission carries them. #}
+  <div class="hidden-filter-state" hidden>
+    {% for v in active.track %}<input type="checkbox" name="track" value="{{ v }}" checked/>{% endfor %}
+    {% for v in active.room %}<input type="checkbox" name="room" value="{{ v }}" checked/>{% endfor %}
+  </div>
+</form>
+
+{% include "partials/results_region.html" %}
+
+{# Filter sheet — outer shell + scrim; inner sheet-body is HTMX-managed #}
+<div id="filter-sheet" class="sheet" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet-scrim" data-close-sheet></div>
+  {% include "partials/filter_sheet.html" %}
+</div>
+{% endblock %}

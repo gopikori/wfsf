@@ -14,3 +14,19 @@ documents/
 test_output/
 screenshots
 .playwright-cli/
+*.db
+*.db-wal
+*.db-shm
+
+# Runtime / fetched data — local DB, fetched JSON, scraped llms.md
+data/
+
+# Browser/snapshot dumps from rodney / playwright dev tools
+*-snap.yml
+*-snap.yaml
+br.yml
+
+# Editor / OS
+.idea/
+.vscode/
+

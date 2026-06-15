@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Welcome · WFSF{% endblock %}
+{% block content %}
+<section class="auth-shell">
+  <div class="auth-card">
+    <p class="eyebrow">Welcome</p>
+    <h1 class="display">Tell us what you care about.</h1>
+    <p class="lede">Pick a few tracks. We'll surface relevant sessions when you have a gap. Skippable — change it anytime in Profile.</p>
+    <form method="post" action="/onboarding" hx-post="/onboarding" hx-target="body">
+      <div class="chips-row scrolly">
+        {% for t in facets.tracks %}
+        <label class="chip selectable" style="--c: {{ t|track_color }}">
+          <input type="checkbox" name="interest" value="{{ t }}" {% if t in prefs.interests %}checked{% endif %} />
+          <span><span class="dot" style="background: var(--c)"></span>{{ t }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="auth-actions">
+        <button class="btn primary" type="submit">Continue to Browse</button>
+        <a class="btn ghost" href="/browse">Skip</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
