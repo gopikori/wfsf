@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import Request
@@ -158,10 +158,10 @@ def last_sync_label() -> str | None:
     try:
         ts = datetime.fromisoformat(raw.replace(" ", "T"))
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
+            ts = ts.replace(tzinfo=UTC)
     except (ValueError, AttributeError):
         return None
-    delta = datetime.now(timezone.utc) - ts
+    delta = datetime.now(UTC) - ts
     secs = int(delta.total_seconds())
     if secs < 60:
         return "Updated just now"
@@ -182,6 +182,20 @@ def app_base_url() -> str:
     return (settings.APP_BASE_URL or "").rstrip("/")
 
 
+def turnstile_enabled() -> bool:
+    from app.turnstile import enabled
+
+    return enabled()
+
+
+def turnstile_site_key() -> str:
+    from app.turnstile import site_key
+
+    return site_key()
+
+
 templates.env.globals["static_v"] = static_v
 templates.env.globals["last_sync_label"] = last_sync_label
 templates.env.globals["app_base_url"] = app_base_url
+templates.env.globals["turnstile_enabled"] = turnstile_enabled
+templates.env.globals["turnstile_site_key"] = turnstile_site_key

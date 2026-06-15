@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from app import turnstile
 from app.auth import invalidate_session, request_otp, verify_otp
 from app.config import settings
 from app.deps import current_user_optional
@@ -23,8 +24,23 @@ async def login_page(request: Request):
 
 
 @router.post("/login/request", response_class=HTMLResponse)
-async def login_request(request: Request, email: str = Form(...)):
+async def login_request(
+    request: Request,
+    email: str = Form(...),
+    cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
+):
     ip = request.client.host if request.client else ""
+    if not await turnstile.verify(cf_turnstile_response, ip=ip):
+        return templates.TemplateResponse(
+            "partials/login_form.html",
+            {
+                "request": request,
+                "step": "email",
+                "email": email.strip().lower(),
+                "message": "Please complete the verification and try again.",
+                "ok": False,
+            },
+        )
     ok, msg, _dev = request_otp(email, ip=ip)
     step = "code" if ok else "email"
     return templates.TemplateResponse(

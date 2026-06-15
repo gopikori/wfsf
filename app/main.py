@@ -44,7 +44,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "img-src 'self' data: https:; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com data:; "
-            "script-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; "
+            "frame-src https://challenges.cloudflare.com; "
             "connect-src 'self'; "
             "frame-ancestors 'none'",
         )

@@ -36,6 +36,22 @@
   <link rel="stylesheet" href="{{ static_v('css/agenda.css') }}" />
   <script src="{{ static_v('js/htmx.min.js') }}" defer></script>
   <script src="{{ static_v('js/app.js') }}" defer></script>
+  {% if turnstile_enabled() %}
+  <script>
+    // Explicit render so HTMX-swapped widgets initialise too. The data-rendered
+    // guard prevents double-rendering the same element.
+    window.renderTurnstile = function (root) {
+      if (!window.turnstile) return;
+      (root || document).querySelectorAll('.ts-widget:not([data-rendered])').forEach(function (el) {
+        el.setAttribute('data-rendered', '1');
+        window.turnstile.render(el, { sitekey: el.getAttribute('data-sitekey') });
+      });
+    };
+    window.onloadTurnstile = function () { window.renderTurnstile(document); };
+    document.addEventListener('htmx:afterSwap', function (e) { window.renderTurnstile(e.target); });
+  </script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstile" async defer></script>
+  {% endif %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <div class="bg-aura" aria-hidden="true"></div>

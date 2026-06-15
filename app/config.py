@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     RESEND_FROM: str = "WFSF <onboarding@resend.dev>"
 
+    # Cloudflare Turnstile (bot protection on the login form). Both keys must be
+    # set to activate; leave blank to disable (e.g. local dev). Create a free
+    # "Managed" widget at: Cloudflare dashboard → Turnstile → Add widget.
+    TURNSTILE_SITE_KEY: str = ""
+    TURNSTILE_SECRET_KEY: str = ""
+
     # Comma-separated emails granted admin role on first OTP verify. Set via .env.
     ADMIN_EMAILS: str = ""
 

@@ -12,6 +12,9 @@
   {% if message %}
   <p class="field-msg {{ 'is-ok' if ok else 'is-err' }}">{{ message }}</p>
   {% endif %}
+  {% if turnstile_enabled() %}
+  <div class="ts-widget" data-sitekey="{{ turnstile_site_key() }}"></div>
+  {% endif %}
   <button type="submit" class="btn primary block">
     Send me a code
     <span class="htmx-indicator dot-pulse" aria-hidden="true"></span>

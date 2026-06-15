@@ -16,8 +16,8 @@ from app.queries import annotate_with_conflicts, itinerary_sessions
 from app.sched import DAY_DATE, DAY_INDEX, DAY_SHORT
 from app.templating import templates
 from app.venue import floors as venue_floors
-from app.venue import locate, rooms as venue_rooms
-from app.venue import venue_info
+from app.venue import locate, venue_info
+from app.venue import rooms as venue_rooms
 
 router = APIRouter()
 
