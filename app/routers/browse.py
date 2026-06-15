@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from starlette.datastructures import FormData
 
 from app.auth import CurrentUser
 from app.deps import current_user
@@ -203,14 +204,70 @@ async def session_detail(session_id: int, request: Request, user: CurrentUser = 
     return templates.TemplateResponse("session_detail.html", ctx)
 
 
+def _filters_from_form(form: FormData) -> dict:
+    """Same shape as _read_filters but sourced from the POST body (hx-include=#filters)."""
+    return {
+        "day": [int(v) for v in form.getlist("day") if str(v).lstrip("-").isdigit()],
+        "track": [v for v in form.getlist("track") if v and v.strip()],
+        "type": [v for v in form.getlist("type") if v and v.strip()],
+        "room": [v for v in form.getlist("room") if v and v.strip()],
+        "search": (form.get("q") or "").strip() or None,
+    }
+
+
+def _chrome_for(session: dict, active: dict, user_id: int) -> dict | None:
+    """Recompute the slot data for the day containing `session` under the
+    user's current filter set. Returns the day dict the chrome partial expects,
+    or None if the day isn't in scope (e.g., filtered out, or no filter form
+    was posted so the request didn't come from the browse list)."""
+    day_idx = session.get("day_index")
+    if day_idx is None:
+        return None
+    filter_days = active.get("day") or []
+    if filter_days and day_idx not in filter_days:
+        return None
+    sessions = list_sessions(
+        day_indexes=[day_idx],
+        tracks=active["track"] or None,
+        types=active["type"] or None,
+        rooms=active["room"] or None,
+        search=active["search"],
+    )
+    if not sessions:
+        return None
+    grouped = _group_by_day_slot(sessions, itinerary_map(user_id))
+    return grouped[0] if grouped else None
+
+
+async def _save_response_ctx(request: Request, s: dict, user: CurrentUser) -> dict:
+    saved_ids = itinerary_ids(user.id)
+    form = await request.form()
+    # 'q' is always present in #filters; its absence signals the POST didn't
+    # come from the browse list (e.g., session_detail page) — skip OOB chrome.
+    chrome_day = None
+    facets_data = None
+    if "q" in form:
+        active = _filters_from_form(form)
+        chrome_day = _chrome_for(s, active, user.id)
+        if chrome_day is not None:
+            facets_data = faceted_counts(active)
+    return {
+        "request": request,
+        "user": user,
+        "session": s,
+        "saved_ids": saved_ids,
+        "chrome_day": chrome_day,
+        "facets": facets_data,
+    }
+
+
 @router.post("/session/{session_id}/save", response_class=HTMLResponse)
 async def save_session(session_id: int, request: Request, user: CurrentUser = Depends(current_user)):
     s = get_session(session_id)
     if not s:
         raise HTTPException(status_code=404)
     add_itinerary(user.id, session_id)
-    saved_ids = itinerary_ids(user.id)
-    ctx = {"request": request, "user": user, "session": s, "saved_ids": saved_ids}
+    ctx = await _save_response_ctx(request, s, user)
     return templates.TemplateResponse("partials/save_button.html", ctx)
 
 
@@ -220,6 +277,5 @@ async def unsave_session(session_id: int, request: Request, user: CurrentUser = 
     if not s:
         raise HTTPException(status_code=404)
     remove_itinerary(user.id, session_id)
-    saved_ids = itinerary_ids(user.id)
-    ctx = {"request": request, "user": user, "session": s, "saved_ids": saved_ids}
+    ctx = await _save_response_ctx(request, s, user)
     return templates.TemplateResponse("partials/save_button.html", ctx)

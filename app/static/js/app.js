@@ -49,13 +49,25 @@
   }
 
   function bindToasts() {
-    document.body.addEventListener('htmx:afterSwap', (e) => {
-      const target = e.detail && e.detail.target;
+    // syncResultCount runs per swap so the OOB chrome refresh keeps the count
+    // chip honest. Toast logic is on afterRequest (fires once per HTTP request)
+    // — otherwise the OOB day-chrome swap would double-fire the message.
+    document.body.addEventListener('htmx:afterSwap', () => {
       syncResultCount();
-      if (!target) return;
-      if (target.classList && target.classList.contains('save-form')) {
-        const attending = target.querySelector('.btn.attending');
-        flash(attending ? 'Attending — added to your plan' : 'Removed from your plan', attending ? 'ok' : '');
+    });
+    // Derive intent from the request path. The htmx:afterSwap `target` for
+    // hx-swap="outerHTML" references the now-detached old form, so its DOM
+    // reflects the PRE-swap state — querying it for `.btn.attending` would
+    // invert the toast (worked once, broken forever after).
+    document.body.addEventListener('htmx:afterRequest', (e) => {
+      const xhr = e.detail && e.detail.xhr;
+      if (!xhr || xhr.status < 200 || xhr.status >= 300) return;
+      const req = e.detail && e.detail.requestConfig;
+      const path = (req && req.path) || (e.detail && e.detail.pathInfo && e.detail.pathInfo.requestPath) || '';
+      if (/\/session\/\d+\/save$/.test(path)) {
+        flash('Attending — added to your plan', 'ok');
+      } else if (/\/session\/\d+\/unsave$/.test(path)) {
+        flash('Removed from your plan', '');
       }
     });
     document.body.addEventListener('htmx:responseError', () => {
@@ -392,6 +404,42 @@
         bindShapeBarScrub();
         bindDayChromeSwitch();
       }
+    });
+    // After save/unsave the OOB chrome swap replaces the day-chrome and the
+    // server response markup omits .is-active. .day-chrome defaults to
+    // display:none, so without re-adding the class the whole bottom bar
+    // vanishes.
+    //
+    // We MUST run after htmx:afterSettle, not afterRequest. htmx's class
+    // settle phase runs AFTER afterRequest and authoritatively overwrites
+    // the node's className with the response markup's value — any is-active
+    // we add at afterRequest gets immediately wiped. afterSettle fires last
+    // and leaves the className finalized; reassertions stick.
+    //
+    // Look up the affected day deterministically: session_id (from request
+    // path) → new save-form button → enclosing .day-block[data-day-index].
+    // Skip non-save/unsave requests up front.
+    document.body.addEventListener('htmx:afterSettle', (e) => {
+      const xhr = e.detail && e.detail.xhr;
+      if (!xhr || xhr.status < 200 || xhr.status >= 300) return;
+      const req = e.detail && e.detail.requestConfig;
+      const path = (req && req.path) || '';
+      const m = path.match(/\/session\/(\d+)\/(save|unsave)$/);
+      if (!m) return;
+      const sid = m[1];
+      const btn = document.querySelector(
+        `form.save-form button[hx-post="/session/${sid}/save"], form.save-form button[hx-post="/session/${sid}/unsave"]`
+      );
+      const block = btn && btn.closest('.day-block');
+      const di = block && block.dataset.dayIndex;
+      if (di != null) {
+        document.querySelectorAll('.day-chrome.is-active').forEach(c => c.classList.remove('is-active'));
+        const chrome = document.getElementById(`chrome-day-${di}`);
+        if (chrome) chrome.classList.add('is-active');
+      }
+      // The freshly-swapped chrome's .shape-bar is a brand-new node — its
+      // dataset.bound guard never ran, so pointer events would no-op.
+      bindShapeBarScrub();
     });
   });
 })();

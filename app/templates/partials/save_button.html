@@ -1,5 +1,5 @@
 {% set saved = session.id in saved_ids %}
-<form class="save-form" hx-target="this" hx-swap="outerHTML">
+<form class="save-form" hx-target="this" hx-swap="outerHTML" hx-include="#filters">
   {% if saved %}
   <button type="button"
           class="btn attending"
@@ -18,3 +18,9 @@
   </button>
   {% endif %}
 </form>
+{# Out-of-band refresh of the affected day's bottom chrome so the time-pill
+   and shape-bar slot states (primary/backup counts, attending glyphs) update
+   immediately. Silently no-ops on pages without a matching #chrome-day-N. #}
+{% if chrome_day %}
+{% with d=chrome_day, oob=true %}{% include "partials/day_chrome.html" %}{% endwith %}
+{% endif %}
