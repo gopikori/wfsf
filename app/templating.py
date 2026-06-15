@@ -175,5 +175,13 @@ def last_sync_label() -> str | None:
     return f"Updated {days}d ago"
 
 
+def app_base_url() -> str:
+    """Return the deployed base URL (no trailing slash) for absolute meta tag URLs."""
+    from app.config import settings
+
+    return (settings.APP_BASE_URL or "").rstrip("/")
+
+
 templates.env.globals["static_v"] = static_v
 templates.env.globals["last_sync_label"] = last_sync_label
+templates.env.globals["app_base_url"] = app_base_url

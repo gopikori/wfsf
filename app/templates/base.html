@@ -7,6 +7,27 @@
   <meta name="theme-color" content="#0b0b10" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="{{ static_v('icons/icon-192.svg') }}" type="image/svg+xml" />
+
+  {% set _base = app_base_url() %}
+  {% set _og_title = self.title() %}
+  {% set _og_desc = 'Pick sessions, juggle backups, surface conflicts, and preview the walk between Moscone rooms — your whole conference, one screen.' %}
+  {% set _og_image = _base ~ '/static/og/og-card.png' %}
+  <meta name="description" content="{{ _og_desc }}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="WFSF" />
+  <meta property="og:title" content="{{ _og_title }}" />
+  <meta property="og:description" content="{{ _og_desc }}" />
+  <meta property="og:url" content="{{ _base }}/" />
+  <meta property="og:image" content="{{ _og_image }}" />
+  <meta property="og:image:secure_url" content="{{ _og_image }}" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="WFSF — AI Engineer World's Fair 2026 schedule companion" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="{{ _og_title }}" />
+  <meta name="twitter:description" content="{{ _og_desc }}" />
+  <meta name="twitter:image" content="{{ _og_image }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&family=Instrument+Serif&display=swap" rel="stylesheet">
