@@ -26,12 +26,24 @@ def _active_admin_count(conn) -> int:
 
 
 def _list_users(conn, search: str | None = None) -> list[dict]:
-    sql = "SELECT id, email, role, status, created_at, last_login_at FROM users"
+    sql = """
+        SELECT u.id, u.email, u.role, u.status, u.created_at, u.last_login_at,
+               COALESCE(slot_counts.booked_timeslots, 0) AS booked_timeslots
+        FROM users u
+        LEFT JOIN (
+            SELECT it.user_id,
+                   COUNT(DISTINCT cs.day_index || '|' || COALESCE(cs.start_time, '') || '|' || COALESCE(cs.end_time, '')) AS booked_timeslots
+            FROM itinerary it
+            JOIN conf_sessions cs ON cs.id = it.session_id
+            WHERE cs.deleted = 0
+            GROUP BY it.user_id
+        ) slot_counts ON slot_counts.user_id = u.id
+    """
     params: list = []
     if search:
-        sql += " WHERE lower(email) LIKE ?"
+        sql += " WHERE lower(u.email) LIKE ?"
         params.append(f"%{search.strip().lower()}%")
-    sql += " ORDER BY created_at DESC LIMIT 500"
+    sql += " ORDER BY u.created_at DESC LIMIT 500"
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 

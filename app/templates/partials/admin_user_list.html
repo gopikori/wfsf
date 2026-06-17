@@ -2,7 +2,7 @@
   <h2 class="section-title">Users</h2>
   <table>
     <thead>
-      <tr><th>Email</th><th>Role</th><th>Status</th><th>Registered</th><th>Last login</th><th>Actions</th></tr>
+      <tr><th>Email</th><th>Role</th><th>Status</th><th>Booked slots</th><th>Registered</th><th>Last login</th><th>Actions</th></tr>
     </thead>
     <tbody>
       {% for u in users %}
@@ -10,6 +10,7 @@
         <td class="email">{{ u.email }}</td>
         <td><span class="status {{ 'status-confirmed' if u.role == 'admin' else 'status-other' }}">{{ u.role }}</span></td>
         <td><span class="status {{ 'status-confirmed' if u.status == 'active' else 'status-hold' }}">{{ u.status }}</span></td>
+        <td class="muted">{{ u.booked_timeslots }}</td>
         <td class="muted">{{ u.created_at }}</td>
         <td class="muted">{{ u.last_login_at or '—' }}</td>
         <td class="actions">
