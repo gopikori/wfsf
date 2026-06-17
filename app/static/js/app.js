@@ -112,6 +112,21 @@
     });
   }
 
+  function bindAboutPopover() {
+    // The About panel is a native <details>. Native behaviour only toggles on
+    // the summary, so clicking elsewhere leaves it open. Close it on any click
+    // outside the <details> and on Escape.
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll('details.about-info[open]').forEach((d) => {
+        if (!d.contains(e.target)) d.removeAttribute('open');
+      });
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      document.querySelectorAll('details.about-info[open]').forEach((d) => d.removeAttribute('open'));
+    });
+  }
+
   function bindTypeahead() {
     document.addEventListener('input', (e) => {
       const input = e.target.closest('input[data-typeahead]');
@@ -389,6 +404,7 @@
     bindToasts();
     bindReminders();
     bindSheet();
+    bindAboutPopover();
     bindTypeahead();
     bindActiveChipRemove();
     bindTimeStrip();
