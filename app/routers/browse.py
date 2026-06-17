@@ -17,6 +17,8 @@ from app.queries import (
     list_sessions,
     remove_itinerary,
 )
+from app.sched import hhmm_to_minutes as _to_minutes
+from app.sched import slot_state as _slot_state
 from app.templating import is_htmx, templates
 
 router = APIRouter()
@@ -45,28 +47,6 @@ def _read_filters(request: Request) -> dict:
 def _slot_anchor(day_index: int, start_time: str | None) -> str:
     t = (start_time or "tba").replace(":", "")
     return f"slot-{day_index}-{t}"
-
-
-def _to_minutes(hm: str | None) -> int | None:
-    if not hm or ":" not in hm:
-        return None
-    try:
-        h, m = hm.split(":", 1)
-        return int(h) * 60 + int(m)
-    except ValueError:
-        return None
-
-
-def _slot_state(primary_count: int, backup_count: int, is_past: bool) -> str:
-    if is_past:
-        return "past"
-    if primary_count >= 2:
-        return "conflict"
-    if primary_count == 1:
-        return "primary"
-    if backup_count >= 1:
-        return "backup"
-    return "empty"
 
 
 def _group_by_day_slot(sessions: list[dict], pick_map: dict[int, bool]) -> list[dict]:

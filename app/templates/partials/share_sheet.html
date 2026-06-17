@@ -1,0 +1,17 @@
+<div id="share-box" class="share-box">
+  {% if shared and share_url %}
+  <p class="share-lead">Live link — anyone who opens it sees your current schedule, updating as you change it.</p>
+  <div class="share-link-row">
+    <input class="share-link" type="text" readonly value="{{ share_url }}" data-copy-src aria-label="Your share link" />
+    <button type="button" class="btn ghost sm" data-copy>Copy</button>
+  </div>
+  <form hx-post="/my-schedule/unshare" hx-target="#share-box" hx-swap="outerHTML">
+    <button type="submit" class="link-danger sm">Stop sharing</button>
+  </form>
+  {% else %}
+  <p class="share-lead">Create a private link to share your plan with friends. Your email shows at the top so they know whose schedule it is.</p>
+  <form hx-post="/my-schedule/share" hx-target="#share-box" hx-swap="outerHTML">
+    <button type="submit" class="btn primary sm">Create share link</button>
+  </form>
+  {% endif %}
+</div>

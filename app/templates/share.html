@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-theme="wfsf">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Schedule for {{ owner_email }} · WFSF</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#08080c" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&family=Instrument+Serif&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ static_v('css/app.css') }}" />
+  <link rel="stylesheet" href="{{ static_v('css/glance.css') }}" />
+</head>
+<body class="share-public">
+  <div class="bg-aura" aria-hidden="true"></div>
+  <main class="page share-page">
+    <header class="share-head">
+      <p class="eyebrow">Conference schedule</p>
+      <h1 class="display sm">Schedule for <span class="share-email">{{ owner_email }}</span></h1>
+      <p class="muted">AI Engineer World's Fair 2026 · Jun 29 – Jul 2 · San Francisco</p>
+    </header>
+
+    <p class="glance-hint muted"><span class="gh-dot" aria-hidden="true"></span>Hold a block for details</p>
+
+    {% include "partials/glance_grid.html" %}
+
+    {% set _b = app_base_url() %}
+    <footer class="share-foot">
+      <div class="sf-mark">WFSF</div>
+      <p class="sf-pitch">Plan your own World's Fair — pick sessions, juggle backups, surface time conflicts, and preview the walk between Moscone rooms. Your whole conference, one screen.</p>
+      <a class="btn primary" href="{{ (_b ~ '/') if _b else '/' }}">Build your own schedule →</a>
+      <p class="sf-foot-note muted">Free · AI Engineer World's Fair 2026</p>
+    </footer>
+  </main>
+  <script src="{{ static_v('js/glance.js') }}" defer></script>
+</body>
+</html>

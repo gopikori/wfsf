@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import settings
 from app.db import init_schema
 from app.deps import current_user_optional
-from app.routers import admin, auth_routes, browse, dayof, my_schedule, profile, speakers, walk
+from app.routers import admin, auth_routes, browse, dayof, my_schedule, profile, share, speakers, walk
 from app.sync import current_interval_minutes, sync_all
 from app.templating import templates
 
@@ -119,6 +119,7 @@ app.include_router(speakers.router)
 app.include_router(profile.router)
 app.include_router(dayof.router)
 app.include_router(walk.router)
+app.include_router(share.router)
 app.include_router(admin.router)
 
 

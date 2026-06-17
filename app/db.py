@@ -183,7 +183,18 @@ def tx() -> Iterator[sqlite3.Connection]:
 def init_schema() -> None:
     with db() as conn:
         conn.executescript(_SCHEMA)
+    _migrate()
     _seed_admins()
+
+
+def _migrate() -> None:
+    """Idempotent column additions for tables created before the feature existed."""
+    with db() as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "share_token" not in cols:
+            conn.execute("ALTER TABLE users ADD COLUMN share_token TEXT")
+        # NULLs are distinct in SQLite, so a unique index allows many un-shared users.
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_share_token_idx ON users(share_token)")
 
 
 def _seed_admins() -> None:

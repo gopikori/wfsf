@@ -7,7 +7,9 @@
     <h1 class="display sm">My Schedule</h1>
   </div>
   <div class="ph-meta">
+    {% if total %}<a class="meta-pill share-cta" href="/my-schedule/glance?share=1" title="Share your schedule with friends">↗ Share schedule</a>{% endif %}
     <span class="meta-pill"><strong>{{ total }}</strong> picked</span>
+    <a class="meta-pill link" href="/my-schedule/glance" title="See all four days side by side">▦ 4-day glance</a>
     {% if total %}<a class="meta-pill link" href="/walk" title="Animated walk preview across the venue">↗ Walk preview</a>{% endif %}
   </div>
 </section>

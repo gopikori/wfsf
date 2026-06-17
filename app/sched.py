@@ -161,6 +161,30 @@ def normalize_session(row: dict) -> NormalizedSession | None:
     )
 
 
+def hhmm_to_minutes(hm: str | None) -> int | None:
+    """'09:30' -> 570. None/malformed -> None."""
+    if not hm or ":" not in hm:
+        return None
+    try:
+        h, m = hm.split(":", 1)
+        return int(h) * 60 + int(m)
+    except ValueError:
+        return None
+
+
+def slot_state(primary_count: int, backup_count: int, is_past: bool) -> str:
+    """Derive a slot's visual state from the user's picks in it."""
+    if is_past:
+        return "past"
+    if primary_count >= 2:
+        return "conflict"
+    if primary_count == 1:
+        return "primary"
+    if backup_count >= 1:
+        return "backup"
+    return "empty"
+
+
 def conflicts(a_start: str | None, a_end: str | None, b_start: str | None, b_end: str | None) -> bool:
     if not (a_start and a_end and b_start and b_end):
         return False

@@ -303,6 +303,33 @@ def last_sessions_sync_at() -> str | None:
     return row["finished_at"] if row else None
 
 
+def get_share_token(user_id: int) -> str | None:
+    with db() as conn:
+        row = conn.execute("SELECT share_token FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row["share_token"] if row else None
+
+
+def set_share_token(user_id: int, token: str) -> None:
+    with db() as conn:
+        conn.execute("UPDATE users SET share_token = ? WHERE id = ?", (token, user_id))
+
+
+def clear_share_token(user_id: int) -> None:
+    with db() as conn:
+        conn.execute("UPDATE users SET share_token = NULL WHERE id = ?", (user_id,))
+
+
+def user_by_share_token(token: str) -> dict | None:
+    if not token:
+        return None
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id, email, share_token FROM users WHERE share_token = ? AND status = 'active'",
+            (token,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def session_changes_for_user(user_id: int, since_hours: int = 72) -> list[dict]:
     sql = (
         "SELECT sc.id, sc.session_id, sc.change_type, sc.field, sc.old_value, sc.new_value, sc.detected_at, "

@@ -1,0 +1,85 @@
+{# Reusable 4-day glance grid. Expects `grid` (from app.glance.glance_grid).
+   Self-contained: includes the detail bottom-sheet + hidden per-pick detail
+   nodes, so both the authenticated page and the public share page render
+   identically. Long-press / tap wiring lives in js/glance.js. #}
+<div class="glance" style="--span: {{ grid.axis.span }};">
+  <div class="glance-grid">
+    <div class="gx-corner" aria-hidden="true"></div>
+    {% for day in grid.days %}
+    <div class="gc-head">
+      <span class="gc-dow">{{ day.dow }}</span>
+      <span class="gc-date">{{ day.date }}</span>
+      <span class="gc-count{% if day.pick_count %} has{% endif %}">{{ day.pick_count }}</span>
+    </div>
+    {% endfor %}
+
+    <div class="glance-axis" aria-hidden="true">
+      {% for h in grid.axis.hours %}
+      <span class="gx-hour" style="top: {{ h.top_pct }}%">{{ h.label }}</span>
+      {% endfor %}
+    </div>
+    {% for day in grid.days %}
+    <div class="gc-track">
+      {% for h in grid.axis.hours %}<span class="gc-line" style="top: {{ h.top_pct }}%"></span>{% endfor %}
+      {% for slot in day.slots %}
+      <button type="button"
+              class="glance-block state-{{ slot.state }}{% if slot.compact %} is-compact{% endif %}"
+              style="top: {{ slot.top_pct }}%; height: {{ slot.height_pct }}%;"
+              data-start="{{ slot.start }}"
+              data-end="{{ slot.end }}"
+              data-state="{{ slot.state }}"
+              data-available="{{ slot.available }}"
+              data-picks="{{ slot.pick_count }}"
+              {% if slot.sessions %}data-detail="gd-{{ day.day_index }}-{{ slot.key }}"{% endif %}
+              aria-label="{{ slot.start }} — {{ slot.title or 'Free, ' ~ slot.available ~ ' sessions' }}">
+        <span class="gb-time">{{ slot.start }}</span>
+        {% if slot.title %}
+        <span class="gb-title">{{ slot.title }}{% if slot.extra %} <span class="gb-extra">+{{ slot.extra }}</span>{% endif %}</span>
+        {% else %}
+        <span class="gb-free">{{ slot.available }} free</span>
+        {% endif %}
+      </button>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {# hidden detail bodies — only for slots that hold the viewer's picks #}
+  <div class="glance-details" hidden>
+    {% for day in grid.days %}{% for slot in day.slots %}{% if slot.sessions %}
+    <div id="gd-{{ day.day_index }}-{{ slot.key }}">
+      {% for s in slot.sessions %}
+      <article class="gd-item{% if s.is_backup %} is-backup{% endif %}">
+        <div class="gd-tags">
+          <span class="gd-badge">{{ 'Backup' if s.is_backup else 'Attending' }}</span>
+          {% if s.status %}<span class="gd-status {{ s.status|status_class }}">{{ s.status }}</span>{% endif %}
+        </div>
+        <h4 class="gd-title">{{ s.title }}</h4>
+        <p class="gd-when">{{ s.start|display_time }} – {{ s.end|display_time }}</p>
+        <p class="gd-meta">
+          {% if s.room %}<span class="gd-room">{{ s.room }}{% if s.floor %} · L{{ s.floor }}{% endif %}</span>{% endif %}
+          {% if s.track %}<span class="gd-track" style="--track: {{ s.track|track_color }}">{{ s.track }}</span>{% endif %}
+        </p>
+        {% if s.speakers %}<p class="gd-speakers">{{ s.speakers|join(' · ') }}</p>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}{% endfor %}{% endfor %}
+  </div>
+
+  {# detail bottom sheet #}
+  <div class="glance-sheet" id="glance-sheet" hidden aria-hidden="true">
+    <div class="gs-scrim" data-close-glance></div>
+    <div class="gs-panel" role="dialog" aria-modal="true" aria-label="Slot details">
+      <div class="gs-grip" data-close-glance></div>
+      <header class="gs-head">
+        <div class="gs-headings">
+          <p class="gs-time" id="gs-time"></p>
+          <p class="gs-state" id="gs-state"></p>
+        </div>
+        <button type="button" class="gs-close" data-close-glance aria-label="Close">✕</button>
+      </header>
+      <div class="gs-body" id="gs-body"></div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}4 days at a glance · WFSF{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ static_v('css/glance.css') }}" />
+
+<section class="page-head">
+  <div class="ph-left">
+    <p class="eyebrow">Your itinerary</p>
+    <h1 class="display sm">4 days at a glance</h1>
+  </div>
+  <div class="ph-meta">
+    <a class="meta-pill link" href="/my-schedule">★ List view</a>
+    <details class="share-pop">
+      <summary class="meta-pill link share-trigger{% if highlight_share %} attention{% endif %}">↗ Share</summary>
+      <div class="share-scrim" data-close-share></div>
+      <div class="share-pop-body">
+        <div class="share-pop-head">
+          <span class="share-pop-title">Share schedule</span>
+          <button type="button" class="gs-close" data-close-share aria-label="Close">✕</button>
+        </div>
+        {% include "partials/share_sheet.html" %}
+      </div>
+    </details>
+  </div>
+</section>
+
+<p class="glance-hint muted"><span class="gh-dot" aria-hidden="true"></span>Hold a block for details · colours mark your picks</p>
+
+{% include "partials/glance_grid.html" %}
+
+<script src="{{ static_v('js/glance.js') }}" defer></script>
+{% endblock %}
