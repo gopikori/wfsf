@@ -362,7 +362,12 @@
     slots.forEach(s => obs.observe(s));
   }
 
+  let dayChromeObserver = null;
   function bindDayChromeSwitch() {
+    // Idempotent: every results-region swap brings fresh .day-block nodes, so
+    // tear down the observer still bound to the now-detached blocks before
+    // rebinding — otherwise stale observers leak and never fire again.
+    if (dayChromeObserver) { dayChromeObserver.disconnect(); dayChromeObserver = null; }
     const blocks = Array.from(document.querySelectorAll('.day-block'));
     if (!blocks.length) return;
     const activate = (block) => {
@@ -372,13 +377,13 @@
     };
     activate(blocks[0]);
     if (!('IntersectionObserver' in window)) return;
-    const obs = new IntersectionObserver((entries) => {
+    dayChromeObserver = new IntersectionObserver((entries) => {
       const visible = entries
         .filter(e => e.isIntersecting)
         .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
       if (visible.length) activate(visible[0].target);
     }, { rootMargin: '-25% 0px -55% 0px', threshold: 0 });
-    blocks.forEach(b => obs.observe(b));
+    blocks.forEach(b => dayChromeObserver.observe(b));
   }
 
   function bindReminders() {
@@ -418,7 +423,12 @@
         autoAnchorNow();
         bindSlotObserver();
         bindShapeBarScrub();
-        bindDayChromeSwitch();
+        // Day-chrome activation is intentionally NOT done here. The swap brings
+        // fresh .day-chrome markup with no .is-active, and htmx's class-settle
+        // phase (runs AFTER this event) rewrites the class attr of id-matched
+        // #chrome-day-N nodes back to the server value — wiping any is-active we
+        // add now. So the whole bottom chrome would vanish on day switch. We
+        // (re)bind it at htmx:afterSettle instead, where the activation sticks.
       }
     });
     // After save/unsave the OOB chrome swap replaces the day-chrome and the
@@ -440,6 +450,15 @@
       if (!xhr || xhr.status < 200 || xhr.status >= 300) return;
       const req = e.detail && e.detail.requestConfig;
       const path = (req && req.path) || '';
+      // /browse swaps (day switch, filters, chip removal) replace #results-region
+      // with fresh chrome that carries no .is-active. Activate it here at
+      // afterSettle — AFTER htmx's class-settle phase finalizes the class attr —
+      // so the bottom chrome (day tiles, time strip, scrubber) sticks instead of
+      // vanishing. Works on both mobile and desktop (chrome is viewport-fixed).
+      if (path.split('?')[0] === '/browse') {
+        bindDayChromeSwitch();
+        return;
+      }
       const m = path.match(/\/session\/(\d+)\/(save|unsave)$/);
       if (!m) return;
       const sid = m[1];
