@@ -27,41 +27,54 @@
 </div>
 {% else %}
 
-<section class="walk-stage" id="walk-stage" data-day-index="{{ day_index }}">
-  <div class="walk-floors" aria-hidden="true">
-    {% for level, fdata in floors.items() %}
-    <img class="walk-floor"
-         data-floor="{{ level }}"
-         src="{{ fdata.image }}"
-         alt="{{ fdata.label }}"
-         loading="{{ 'eager' if loop.first else 'lazy' }}"
-         draggable="false" />
-    {% endfor %}
-    <svg class="walk-overlay" id="walk-overlay" preserveAspectRatio="none" viewBox="0 0 100 100">
-      <defs>
-        <radialGradient id="markerGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"  stop-color="#ff5d29" stop-opacity="0.95" />
-          <stop offset="60%" stop-color="#ff5d29" stop-opacity="0.18" />
-          <stop offset="100%" stop-color="#ff5d29" stop-opacity="0" />
-        </radialGradient>
-      </defs>
-      <!-- Per-floor route: dashed line connecting all on-floor stops, drawn
-           by JS when the current floor changes. -->
-      <path id="walk-trail" class="walk-trail" />
-      <!-- Small pins at every stop on the current floor; the "next" one is
-           white so the user sees where the marker is heading. Built by JS. -->
-      <g id="walk-pins"></g>
-      <!-- Room name labels for every room on the current floor — built by JS
-           from venue.json so the user can ground themselves on the plan. -->
-      <g id="walk-labels"></g>
-      <!-- The "you" marker. transform set by JS via setAttribute. -->
-      <g id="walk-marker" class="walk-marker" transform="translate(50 50)">
-        <circle r="3.6" class="wm-glow" fill="url(#markerGlow)" />
-        <circle r="1.8" class="wm-dot" />
-      </g>
-    </svg>
+<section class="walk-stage is-stack-mode" id="walk-stage" data-day-index="{{ day_index }}">
+  <div class="walk-stage-hud">
+    <div>
+      <p class="walk-floor-label" id="walk-floor-label" aria-live="polite"></p>
+      <strong id="walk-leg-label">Full route overview</strong>
+    </div>
+    <div class="walk-view-modes" aria-label="View mode">
+      <button type="button" class="walk-mode is-active" id="walk-mode-stack">Stack</button>
+      <button type="button" class="walk-mode" id="walk-mode-focus">Focus</button>
+    </div>
   </div>
-  <p class="walk-floor-label" id="walk-floor-label" aria-live="polite"></p>
+
+  <div class="walk-scene" aria-hidden="true">
+    <div class="walk-stack" id="walk-stack" style="--floor-count: {{ floors|length }}">
+    {% for level, fdata in floors.items() %}
+      <div class="walk-floor-layer"
+           data-floor="{{ level }}"
+           style="--floor-index: {{ loop.index0 }}">
+        <span class="walk-floor-badge">L{{ level }}</span>
+        <img class="walk-floor"
+             data-floor="{{ level }}"
+             src="{{ fdata.image }}"
+             alt="{{ fdata.label }}"
+             loading="{{ 'eager' if loop.first else 'lazy' }}"
+             draggable="false" />
+        <svg class="walk-floor-svg" data-floor="{{ level }}" preserveAspectRatio="none" viewBox="0 0 100 100">
+          <path class="walk-route-base" data-role="route-base"></path>
+          <path class="walk-route-active" data-role="route-active"></path>
+          <g data-role="pins"></g>
+          <g data-role="labels"></g>
+          <g data-role="marker" class="walk-marker" transform="translate(50 50)">
+            <circle r="3.6" class="wm-glow" />
+            <circle r="1.8" class="wm-dot" />
+          </g>
+        </svg>
+      </div>
+    {% endfor %}
+    </div>
+  </div>
+  <div class="walk-screen-tip" id="walk-screen-tip" aria-hidden="true">
+    <strong id="walk-tip-title"></strong>
+    <span id="walk-tip-meta"></span>
+  </div>
+  <div class="walk-legend" aria-hidden="true">
+    <span><i class="wl-current"></i> Current</span>
+    <span><i class="wl-done"></i> Visited</span>
+    <span><i class="wl-route"></i> Route</span>
+  </div>
 </section>
 
 <section class="walk-controls" aria-label="Playback">
@@ -78,7 +91,7 @@
   </button>
 </section>
 
-<aside class="walk-card" id="walk-card" aria-live="polite">
+<aside class="walk-card vh" id="walk-card" aria-live="polite">
   <p class="eyebrow" id="wc-eyebrow">Ready</p>
   <h2 id="wc-title">Tap play to walk your day</h2>
   <p class="muted" id="wc-meta"></p>
