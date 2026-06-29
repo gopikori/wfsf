@@ -4,6 +4,9 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+EVENT_TZ = ZoneInfo("America/Los_Angeles")
 
 DAY_INDEX = {
     "Day 1 — Workshop Day": 0,
@@ -23,6 +26,10 @@ DAY_SHORT = {
     2: "Wed Jul 1",
     3: "Thu Jul 2",
 }
+
+
+def event_now() -> datetime:
+    return datetime.now(EVENT_TZ)
 
 # Map room -> floor based on llms.md (1: Expo/Registration, 2: Breakouts, 3: Keynotes)
 ROOM_FLOOR = {
@@ -92,7 +99,7 @@ def session_start_datetime(day_index: int, start_hhmm: str) -> datetime | None:
     if iso is None or not start_hhmm:
         return None
     try:
-        return datetime.fromisoformat(f"{iso}T{start_hhmm}:00")
+        return datetime.fromisoformat(f"{iso}T{start_hhmm}:00").replace(tzinfo=EVENT_TZ)
     except ValueError:
         return None
 
@@ -102,12 +109,12 @@ def session_end_datetime(day_index: int, end_hhmm: str | None, start_hhmm: str |
     if iso is None or not end_hhmm:
         return None
     try:
-        end = datetime.fromisoformat(f"{iso}T{end_hhmm}:00")
+        end = datetime.fromisoformat(f"{iso}T{end_hhmm}:00").replace(tzinfo=EVENT_TZ)
     except ValueError:
         return None
     if start_hhmm:
         try:
-            start = datetime.fromisoformat(f"{iso}T{start_hhmm}:00")
+            start = datetime.fromisoformat(f"{iso}T{start_hhmm}:00").replace(tzinfo=EVENT_TZ)
             if end < start:
                 end = end + timedelta(days=1)
         except ValueError:

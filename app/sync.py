@@ -12,6 +12,7 @@ from app.db import tx
 from app.sched import (
     DAY_INDEX,
     NormalizedSession,
+    event_now,
     normalize_session,
 )
 
@@ -259,7 +260,7 @@ def sync_all() -> dict:
 
 
 def current_interval_minutes() -> int:
-    today = date.today()
+    today = event_now().date()
     try:
         start = date.fromisoformat(settings.EVENT_START)
         end = date.fromisoformat(settings.EVENT_END)

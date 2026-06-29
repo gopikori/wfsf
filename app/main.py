@@ -15,6 +15,7 @@ from app.config import settings
 from app.db import init_schema
 from app.deps import current_user_optional
 from app.routers import admin, auth_routes, browse, dayof, my_schedule, profile, share, speakers, walk
+from app.sched import event_now
 from app.sync import current_interval_minutes, sync_all
 from app.templating import templates
 
@@ -128,7 +129,7 @@ async def root(request: Request):
     user = await current_user_optional(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    today = date.today()
+    today = event_now().date()
     try:
         start = date.fromisoformat(settings.EVENT_START)
         end = date.fromisoformat(settings.EVENT_END)

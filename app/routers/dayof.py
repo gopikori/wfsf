@@ -14,7 +14,15 @@ from app.queries import (
     list_sessions,
     session_changes_for_user,
 )
-from app.sched import DAY_DATE, DAY_INDEX, DAY_SHORT, session_end_datetime, session_start_datetime
+from app.sched import (
+    DAY_DATE,
+    DAY_INDEX,
+    DAY_SHORT,
+    EVENT_TZ,
+    event_now,
+    session_end_datetime,
+    session_start_datetime,
+)
 from app.templating import templates
 
 router = APIRouter()
@@ -97,14 +105,18 @@ def _resolve_now(request: Request) -> tuple[datetime, str | None]:
     leak to production. Accepts both 'YYYY-MM-DDTHH:MM' and 'YYYY-MM-DD'.
     """
     if not settings.DEV_OTP_LOG:
-        return datetime.now(), None
+        return event_now(), None
     raw = (request.query_params.get("as_of") or "").strip()
     if not raw:
-        return datetime.now(), None
+        return event_now(), None
     try:
         simulated = datetime.fromisoformat(raw)
     except ValueError:
-        return datetime.now(), None
+        return event_now(), None
+    if simulated.tzinfo is None:
+        simulated = simulated.replace(tzinfo=EVENT_TZ)
+    else:
+        simulated = simulated.astimezone(EVENT_TZ)
     return simulated, simulated.strftime("%a %b %-d %Y · %-I:%M %p")
 
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date, datetime
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from starlette.datastructures import FormData
@@ -17,6 +15,7 @@ from app.queries import (
     list_sessions,
     remove_itinerary,
 )
+from app.sched import event_now
 from app.sched import hhmm_to_minutes as _to_minutes
 from app.sched import slot_state as _slot_state
 from app.templating import is_htmx, templates
@@ -71,8 +70,9 @@ def _group_by_day_slot(sessions: list[dict], pick_map: dict[int, bool]) -> list[
                 "sessions": [],
             }
         slot["sessions"].append(s)
-    today_iso = date.today().isoformat()
-    now_min = datetime.now().hour * 60 + datetime.now().minute
+    now = event_now()
+    today_iso = now.date().isoformat()
+    now_min = now.hour * 60 + now.minute
     out = []
     for di in sorted(days.keys()):
         d = days[di]
@@ -88,8 +88,9 @@ def _group_by_day_slot(sessions: list[dict], pick_map: dict[int, bool]) -> list[
                         backups += 1
                     else:
                         primaries += 1
+            start_min = starts[i]
             is_past = bool(d["date_iso"] and d["date_iso"] < today_iso) or (
-                d["date_iso"] == today_iso and starts[i] is not None and starts[i] < now_min
+                d["date_iso"] == today_iso and start_min is not None and start_min < now_min
             )
             slot["primary_count"] = primaries
             slot["backup_count"] = backups
